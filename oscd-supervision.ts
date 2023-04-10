@@ -3,12 +3,11 @@ import {
   html,
   LitElement,
   nothing,
-  PropertyValueMap,
   PropertyValues,
   TemplateResult,
 } from 'lit';
 import { msg } from '@lit/localize';
-import { property, state } from 'lit/decorators.js';
+import { property, query, state } from 'lit/decorators.js';
 
 import { newEditEvent, Remove } from '@openscd/open-scd-core';
 
@@ -22,48 +21,51 @@ import '@material/mwc-icon-button-toggle';
 import '@material/mwc-icon';
 import '@material/mwc-icon-button';
 
+import type { ListItem } from '@material/mwc-list/mwc-list-item';
+import type { List, SingleSelectedEvent } from '@material/mwc-list';
+import type { ListItemBase } from '@material/mwc-list/mwc-list-item-base.js';
+
+import './foundation/components/oscd-filter-button.js';
 import './foundation/components/oscd-filtered-list.js';
 
-import { styles } from './foundation/styles/styles.js';
 import {
   compareNames,
   findControlBlocks,
   getDescriptionAttribute,
   getNameAttribute,
 } from './foundation/foundation.js';
-
-import './foundation/components/oscd-filter-button.js';
-
-import type { SelectedItemsChangedEvent } from './foundation/components/oscd-filter-button.js';
-import { identity } from './foundation/identities/identity.js';
-
 import {
   gooseActionIcon,
   smvActionIcon,
   gooseIcon,
   smvIcon,
 } from './foundation/icons.js';
+import { identity } from './foundation/identities/identity.js';
+import { selector } from './foundation/identities/selector.js';
+import { styles } from './foundation/styles/styles.js';
+
 import {
   controlBlockReference,
   isSupervisionModificationAllowed,
+  removeSubscriptionSupervision,
 } from './foundation/subscription/subscription.js';
+
+import type { OscdFilteredList } from './foundation/components/oscd-filtered-list.js';
+import type { SelectedItemsChangedEvent } from './foundation/components/oscd-filter-button.js';
 
 const controlTag = { GOOSE: 'GSEControl', SMV: 'SampledValueControl' };
 const supervisionLnType = { GOOSE: 'LGOS', SMV: 'LSVS' };
-const supervisionCBRef = { GOOSE: 'GoCBRef', SMV: 'SvCBRef' };
 
 function removeIedPart(identityString: string | number): string {
   return `${identityString}`.split('>').slice(1).join('>').trim().slice(1);
 }
 
-function getSupervisionControlBlockRef(
-  ln: Element,
-  type: 'GOOSE' | 'SMV'
-): string | null {
+function getSupervisionControlBlockRef(ln: Element): string | null {
+  const type = ln.getAttribute('lnClass') === 'LGOS' ? 'GoCBRef' : 'SvCBRef';
+
   return (
-    ln.querySelector(
-      `DOI[name="${supervisionCBRef[type]}"] > DAI[name="setSrcRef"] > Val`
-    )?.textContent ?? null
+    ln.querySelector(`DOI[name="${type}"] > DAI[name="setSrcRef"] > Val`)
+      ?.textContent ?? null
   );
 }
 
@@ -83,9 +85,13 @@ export default class Supervision extends LitElement {
   @property({ attribute: false })
   doc!: XMLDocument;
 
+  // TODO: Do I need to track edit count with a state?
+
   @property() docName!: string;
 
   @property() controlType: 'GOOSE' | 'SMV' = 'GOOSE';
+
+  @property() editCount!: number;
 
   @state()
   private get iedList(): Element[] {
@@ -100,7 +106,10 @@ export default class Supervision extends LitElement {
   selectedIEDs: string[] = [];
 
   @state()
-  connectedControlBlockIds: Set<string> = new Set();
+  connectedControlBlockIds: Array<string> = [];
+
+  @state()
+  supervisedControlBlockIds: Array<string> = [];
 
   @state()
   private get selectedIed(): Element | undefined {
@@ -115,42 +124,91 @@ export default class Supervision extends LitElement {
     return undefined;
   }
 
-  storeConnectedControlBlocks() {
+  selectedControl: Element | null = null;
+
+  selectedSupervision: Element | null = null;
+
+  @query('#unusedControls')
+  selectedUnusedControlsListUI!: List;
+
+  @query('#unusedSupervisions')
+  selectedUnusedSupervisionsListUI!: List;
+
+  @query('#unusedControls mwc-list-item[selected]')
+  selectedUnusedControlUI?: ListItem;
+
+  @query('#unusedSupervisions mwc-list-item[selected]')
+  selectedUnusedSupervisionUI?: ListItem;
+
+  protected updateControlBlockInfo() {
+    this.updateConnectedControlBlocks();
+    this.updateSupervisedControlBlocks();
+  }
+
+  protected updateConnectedControlBlocks() {
     if (!this.selectedIed) return;
     const extRefs =
       Array.from(this.selectedIed.getElementsByTagName('ExtRef')) ?? [];
 
-    this.connectedControlBlockIds = new Set();
+    const connectedControlBlockIds: Set<string> = new Set();
     extRefs.forEach(extRef => {
       if (extRefIsType(extRef, 'GOOSE')) {
         findControlBlocks(extRef, 'GOOSE').forEach(cb =>
-          this.connectedControlBlockIds.add(`${identity(cb)}`)
+          connectedControlBlockIds.add(`${identity(cb)}`)
         );
       } else if (extRefIsType(extRef, 'SMV')) {
         findControlBlocks(extRef, 'SMV').forEach(cb =>
-          this.connectedControlBlockIds.add(`${identity(cb)}`)
+          connectedControlBlockIds.add(`${identity(cb)}`)
         );
       } else {
         // unknown type, must check both
-        findControlBlocks(extRef, 'SMV').forEach(cb =>
-          this.connectedControlBlockIds.add(`${identity(cb)}`)
+        findControlBlocks(extRef, 'GOOSE').forEach(cb =>
+          connectedControlBlockIds.add(`${identity(cb)}`)
         );
         findControlBlocks(extRef, 'SMV').forEach(cb =>
-          this.connectedControlBlockIds.add(`${identity(cb)}`)
+          connectedControlBlockIds.add(`${identity(cb)}`)
         );
       }
     });
+    this.connectedControlBlockIds = Array.from(connectedControlBlockIds);
+    console.log('updated connectedControlBlockIds');
     this.requestUpdate();
   }
 
+  protected updateSupervisedControlBlocks() {
+    this.supervisedControlBlockIds = [];
+    const controlElements = [
+      ...this.getControlElements('GOOSE'),
+      ...this.getControlElements('SMV'),
+    ];
+    [
+      ...this.getSupervisionLNs('GOOSE'),
+      ...this.getSupervisionLNs('SMV'),
+    ].forEach(lN => {
+      const cbRef = getSupervisionControlBlockRef(lN);
+      if (cbRef !== null && cbRef !== '') {
+        const controlElement =
+          controlElements.find(
+            control => cbRef === controlBlockReference(control)
+          ) ?? null;
+        if (controlElement) {
+          const controlId = `${identity(controlElement)}`;
+          if (!this.supervisedControlBlockIds.includes(controlId))
+            this.supervisedControlBlockIds.push(controlId);
+        }
+      }
+    });
+  }
+
   protected firstUpdated(): void {
-    this.storeConnectedControlBlocks();
+    this.updateControlBlockInfo();
   }
 
   protected updated(_changedProperties: PropertyValues): void {
     super.updated(_changedProperties);
 
     // When the document is updated, we reset the selected IED.
+    // TODO: Detect same document opened twice. Howto?
     if (_changedProperties.has('doc')) {
       this.selectedIEDs = [];
 
@@ -163,15 +221,36 @@ export default class Supervision extends LitElement {
     }
 
     if (_changedProperties.has('selectedIed') && this.selectedIed) {
-      this.storeConnectedControlBlocks();
+      this.updateControlBlockInfo();
     }
   }
 
-  renderSupervisionNode(lN: Element): TemplateResult {
+  // eslint-disable-next-line class-methods-use-this
+  renderUnusedSupervisionNode(lN: Element): TemplateResult {
+    const description = getDescriptionAttribute(lN);
+    return html`
+      <mwc-list-item
+        ?twoline=${!!description}
+        class="sup-ln mitem"
+        graphic="icon"
+        data-supervision="${identity(lN)}"
+        value="${identity(lN)}"
+      >
+        <span>${removeIedPart(identity(lN))}</span>
+        ${description
+          ? html`<span slot="secondary">${description}</span>`
+          : nothing}
+        <mwc-icon slot="graphic">monitor_heart</mwc-icon>
+      </mwc-list-item>
+      <!-- TODO: In future add wizards -->
+    `;
+  }
+
+  renderSupervisionNode(lN: Element, interactive: boolean): TemplateResult {
     const description = getDescriptionAttribute(lN);
     return html`<div class="item-grouper">
       <mwc-list-item
-        noninteractive
+        ?noninteractive=${!interactive}
         ?twoline=${!!description}
         class="sup-ln mitem"
         graphic="icon"
@@ -193,7 +272,7 @@ export default class Supervision extends LitElement {
         class="sup-btn"
         icon="delete"
         label="${msg('Delete supervision logical node')}"
-        data-ln="${identity(lN)}"
+        data-lN="${identity(lN)}"
         ?disabled=${!isSupervisionModificationAllowed(
           this.selectedIed!,
           supervisionLnType[this.controlType]
@@ -209,52 +288,99 @@ export default class Supervision extends LitElement {
               node: lN,
             };
             this.dispatchEvent(newEditEvent(removeEdit));
+            this.updateSupervisedControlBlocks();
           }
         }}
       ></mwc-icon-button>
     </div>`;
   }
 
-  private getSupervisionLNs(): Element[] {
+  private getSupervisionLNs(controlType: 'GOOSE' | 'SMV'): Element[] {
     if (this.doc && this.selectedIed) {
       return Array.from(
         this.selectedIed.querySelectorAll(
-          `LN[lnClass="${supervisionLnType[this.controlType]}"]`
+          `LN[lnClass="${supervisionLnType[controlType]}"]`
         )
       );
     }
     return [];
   }
 
-  private getControlElements(): Element[] {
+  private getControlElements(controlType: 'GOOSE' | 'SMV'): Element[] {
     if (this.doc && this.selectedIed) {
+      const iedName = getNameAttribute(this.selectedIed!);
       return Array.from(
-        this.doc.querySelectorAll(`LN0 > ${controlTag[this.controlType]}`)
-      );
+        this.doc.querySelectorAll(`LN0 > ${controlTag[controlType]}`)
+      ).filter(cb => getNameAttribute(cb.closest('IED')!) !== iedName);
     }
     return [];
   }
 
-  renderSupervisionLNs(onlyUsed = false, onlyUnused = false): TemplateResult {
+  clearListSelections(): void {
+    if (this.selectedUnusedControlUI) {
+      this.selectedUnusedControlUI!.selected = false;
+      this.selectedUnusedControlUI!.activated = false;
+    }
+
+    if (this.selectedUnusedSupervisionUI) {
+      this.selectedUnusedSupervisionUI!.selected = false;
+      this.selectedUnusedSupervisionUI!.activated = false;
+    }
+
+    this.selectedUnusedControlsListUI.layout(true);
+    this.selectedUnusedSupervisionsListUI.layout(true);
+
+    this.requestUpdate();
+  }
+
+  // TODO: Need to work through how to show delete button with ca-d
+  protected renderUnusedSupervisionLNs(
+    onlyUsed = false,
+    onlyUnused = false
+  ): TemplateResult {
     if (!this.selectedIed) return html``;
-    return html` ${this.getSupervisionLNs()
+    return html` ${this.getSupervisionLNs(this.controlType)
+        .filter(lN => {
+          const cbRef = getSupervisionControlBlockRef(lN);
+          const cbRefUsed = cbRef !== null && cbRef !== '';
+          return (cbRefUsed && onlyUsed) || (!cbRefUsed && onlyUnused);
+        })
+        .map(lN => html`${this.renderUnusedSupervisionNode(lN)}`)}
+      <mwc-list-item
+        hasMeta
+        class="sup-ln mitem"
+        graphic="icon"
+        data-supervision="NEW"
+        value="New Supervision LN"
+      >
+        <span>New Supervision LN</span>
+        <mwc-icon slot="graphic">add_circle</mwc-icon>
+      </mwc-list-item>`;
+  }
+
+  private renderSupervisionLNs(
+    onlyUsed = false,
+    onlyUnused = false
+  ): TemplateResult {
+    if (!this.selectedIed) return html``;
+    return html` ${this.getSupervisionLNs(this.controlType)
       .filter(lN => {
-        const cbRef = getSupervisionControlBlockRef(lN, this.controlType);
+        const cbRef = getSupervisionControlBlockRef(lN);
         const cbRefUsed = cbRef !== null && cbRef !== '';
         return (cbRefUsed && onlyUsed) || (!cbRefUsed && onlyUnused);
       })
-      .map(lN => html`${this.renderSupervisionNode(lN)}`)}`;
+      .map(lN => html`${this.renderSupervisionNode(lN, onlyUnused)}`)}`;
   }
 
-  renderIcons(): TemplateResult {
+  private renderSupervisionRemovalIcons(): TemplateResult {
     return html`<mwc-list class="column remover mlist">
-      ${this.getSupervisionLNs()
+      ${this.getSupervisionLNs(this.controlType)
         .filter(lN => {
-          const cbRef = getSupervisionControlBlockRef(lN, this.controlType);
+          const cbRef = getSupervisionControlBlockRef(lN);
           return cbRef !== null && cbRef !== '';
         })
         .map(
-          () => html`
+          lN => html`
             <mwc-icon-button
               label="${msg('Remove supervision of this control block')}"
               class="column button mitem"
@@ -263,27 +389,42 @@ export default class Supervision extends LitElement {
                 this.selectedIed!,
                 supervisionLnType[this.controlType]
               )}
+              @click=${() => {
+                const cbRef = getSupervisionControlBlockRef(lN);
+                const controlBlock =
+                  this.getControlElements(this.controlType).find(
+                    control => cbRef === controlBlockReference(control)
+                  ) ?? null;
+                if (controlBlock) {
+                  const removeEdit = removeSubscriptionSupervision(
+                    controlBlock,
+                    this.selectedIed
+                  );
+                  this.dispatchEvent(newEditEvent(removeEdit));
+                  // does this need to be awaited?
+                  // await this.updateComplete;
+                  this.updateSupervisedControlBlocks();
+                  this.requestUpdate();
+                }
+              }}
             ></mwc-icon-button>
           `
         )}
     </mwc-list>`;
   }
 
-  renderControl(
+  private renderControl(
     controlElement: Element | null,
-    interactive: boolean = false
+    unused: boolean = false
   ): TemplateResult {
     if (!controlElement) return html``;
 
-    const isCbConnected = this.connectedControlBlockIds.has(
-      `${identity(controlElement)}`
-    );
     return html`<mwc-list-item
-      ?noninteractive=${!interactive}
+      ?noninteractive=${!unused}
       graphic="icon"
       class="mitem"
       twoline
-      ?hasMeta=${isCbConnected}
+      data-control="${identity(controlElement)}"
       value="${identity(controlElement)}"
     >
       <span>${identity(controlElement)} </span>
@@ -295,41 +436,35 @@ export default class Supervision extends LitElement {
       <mwc-icon slot="graphic"
         >${this.controlType === 'GOOSE' ? gooseIcon : smvIcon}</mwc-icon
       >
-      ${isCbConnected
-        ? html`<!-- TODO: The title is non-interactive so not much use - can be fixed? --><mwc-icon
-              class="interactive"
-              slot="meta"
-              title="${msg('This IED subscribes to this control block')}"
-              >data_check</mwc-icon
-            >`
-        : undefined}
-    </mwc-list-item> `;
+    </mwc-list-item>`;
   }
 
-  renderUnusedControls(): TemplateResult {
+  private renderUnusedControls(): TemplateResult {
     if (!this.selectedIed) return html``;
-    return html` ${this.getControlElements()
+    return html`${this.getControlElements(this.controlType)
       .filter(
-        control => !this.connectedControlBlockIds.has(`${identity(control)}`)
+        control =>
+          this.connectedControlBlockIds.includes(`${identity(control)}`) &&
+          !this.supervisedControlBlockIds.includes(`${identity(control)}`)
       )
       .map(
         controlElement => html`${this.renderControl(controlElement, true)}`
       )}`;
   }
 
-  renderUsedControls(): TemplateResult {
+  private renderUsedControls(): TemplateResult {
     if (!this.selectedIed) return html``;
 
     return html`<mwc-list class="column mlist">
-      ${this.getSupervisionLNs()
+      ${this.getSupervisionLNs(this.controlType)
         .filter(lN => {
-          const cbRef = getSupervisionControlBlockRef(lN, this.controlType);
+          const cbRef = getSupervisionControlBlockRef(lN);
           return cbRef !== null && cbRef !== '';
         })
         .map(lN => {
-          const cbRef = getSupervisionControlBlockRef(lN, this.controlType);
+          const cbRef = getSupervisionControlBlockRef(lN);
           const controlElement =
-            this.getControlElements().find(
+            this.getControlElements(this.controlType).find(
               control => cbRef === controlBlockReference(control)
             ) ?? null;
 
@@ -338,7 +473,7 @@ export default class Supervision extends LitElement {
     >`;
   }
 
-  renderControlSelector(): TemplateResult {
+  private renderControlSelector(): TemplateResult {
     return html`<div id="controlSelector" class="column">
       <mwc-icon-button-toggle
         id="controlType"
@@ -352,11 +487,15 @@ export default class Supervision extends LitElement {
         }}
         >${gooseActionIcon}${smvActionIcon}
       </mwc-icon-button-toggle>
-      <h2 id="cbTitle">${msg(this.controlType)} Control Blocks</h2>
+      <h2 id="cbTitle">
+        ${this.controlType === 'GOOSE'
+          ? msg('GOOSE Control Blocks')
+          : msg('SV Control Blocks')}
+      </h2>
     </div>`;
   }
 
-  renderInfo(): TemplateResult {
+  private renderInfo(): TemplateResult {
     return html`${this.selectedIed &&
     !isSupervisionModificationAllowed(
       this.selectedIed,
@@ -369,7 +508,7 @@ export default class Supervision extends LitElement {
       : nothing}`;
   }
 
-  renderIedSelector(): TemplateResult {
+  private renderIedSelector(): TemplateResult {
     return html`<div id="iedSelector">
       <oscd-filter-button
         id="iedFilter"
@@ -407,7 +546,79 @@ export default class Supervision extends LitElement {
     </div>`;
   }
 
-  render(): TemplateResult {
+  private renderUnusedControlList(): TemplateResult {
+    return html`<oscd-filtered-list
+      id="unusedControls"
+      activatable
+      @selected=${(ev: SingleSelectedEvent) => {
+        console.log('control');
+        const selectedListItem = (<ListItemBase>(
+          (<OscdFilteredList>ev.target).selected
+        ))!;
+        if (!selectedListItem) return;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { control } = selectedListItem.dataset;
+        const selectedControl = <Element>(
+          this.doc.querySelector(
+            selector(controlTag[this.controlType], control ?? 'Unknown')
+          )
+        );
+
+        this.selectedControl = selectedControl;
+
+        if (this.selectedControl && this.selectedSupervision) {
+          console.log(
+            'connecting',
+            identity(this.selectedControl),
+            identity(this.selectedSupervision)
+          );
+          this.selectedControl = null;
+          this.selectedSupervision = null;
+        }
+
+        this.clearListSelections();
+        this.selectedControl = selectedControl;
+      }}
+    >
+      ${this.renderUnusedControls()}
+    </oscd-filtered-list>`;
+  }
+
+  private renderUnusedSupervisionList(): TemplateResult {
+    return html`<oscd-filtered-list
+      id="unusedSupervisions"
+      activatable
+      @selected=${(ev: SingleSelectedEvent) => {
+        console.log('supervision');
+        const selectedListItem = (<ListItemBase>(
+          (<OscdFilteredList>ev.target).selected
+        ))!;
+        if (!selectedListItem) return;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { supervision } = selectedListItem.dataset;
+        const selectedSupervision = <Element>(
+          this.doc.querySelector(selector('LN', supervision ?? 'Unknown'))
+        );
+
+        this.selectedSupervision = selectedSupervision;
+        if (this.selectedControl && this.selectedSupervision) {
+          console.log(
+            'connecting',
+            identity(this.selectedControl),
+            identity(this.selectedSupervision)
+          );
+          this.selectedControl = null;
+          this.selectedSupervision = null;
+        }
+
+        this.clearListSelections();
+      }}
+    >
+      ${this.renderUnusedSupervisionLNs(false, true)}
+    </oscd-filtered-list>`;
+  }
+
+  protected render(): TemplateResult {
     if (!this.doc) return html``;
 
     if (this.iedList.length === 0) return html`<h1>>No IEDs present</h1>`;
@@ -422,7 +633,7 @@ export default class Supervision extends LitElement {
       <div class="column remover"></div>
       <h2 class="column">Supervision Logical Nodes</h2>
       ${this.renderUsedControls()}
-      ${this.renderIcons()}
+      ${this.renderSupervisionRemovalIcons()}
       <mwc-list class="column mlist">
         ${this.renderSupervisionLNs(true, false)}
       </mwc-list>
@@ -430,17 +641,17 @@ export default class Supervision extends LitElement {
     </section>
     <section class="unused">
       <div class="column-unused">
-        <h2>${msg(`Unsupervised ${msg(this.controlType)} Control Blocks`)}</h2>
-      <oscd-filtered-list activatable>
-        ${this.renderUnusedControls()}
-      </oscd-filtered-list>
+        <h2>${
+          this.controlType === 'GOOSE'
+            ? msg(`Subscribed GOOSE Control Blocks`)
+            : msg(`Subscribed SV Control Blocks`)
+        }</h2>
+        ${this.renderUnusedControlList()}
       </div>
       <hr>
       <div class="column-unused">
-        <h2>${msg('Unused Supervision Logical Nodes')}</h2>
-        <oscd-filtered-list activatable>
-          ${this.renderSupervisionLNs(false, true)}
-        </oscd-filtered-list>
+        <h2>${msg('Available Supervision Logical Nodes')}</h2>
+        ${this.renderUnusedSupervisionList()}
       </div>
     </section>
     `;
@@ -537,7 +748,7 @@ export default class Supervision extends LitElement {
 
     .column-unused {
       display: flex;
-      flex: 1 1 50%;
+      flex: 1 1 48%;
       flex-direction: column;
     }
   `;

@@ -94,3 +94,21 @@ export function findControlBlocks(
   );
   return Array.from(controlBlocks);
 }
+
+/** maximum value for `lnInst` attribute */
+const maxLnInst = 99;
+const lnInstRange = Array(maxLnInst)
+  .fill(1)
+  .map((_, i) => `${i + 1}`);
+
+/**
+ * @param lnElements - The LN elements to be scanned for `inst`
+ * values already in use.
+ * @returns first available inst value for LN or undefined if no inst is available
+ */
+export function minAvailableLogicalNodeInstance(
+  lnElements: Element[]
+): string | undefined {
+  const lnInsts = new Set(lnElements.map(ln => ln.getAttribute('inst') || ''));
+  return lnInstRange.find(lnInst => !lnInsts.has(lnInst));
+}

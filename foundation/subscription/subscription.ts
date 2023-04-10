@@ -1,3 +1,9 @@
+import { Insert, Remove } from '@openscd/open-scd-core';
+
+import { minAvailableLogicalNodeInstance } from '../foundation.js';
+
+export const SCL_NAMESPACE = 'http://www.iec.ch/61850/2003/SCL';
+
 /**
  * Simple function to check if the attribute of the Left Side has the same value as the attribute of the Right Element.
  *
@@ -263,4 +269,329 @@ export function isSupervisionModificationAllowed(
   }
   // definition missing
   return false;
+}
+
+/**
+ * Return Val elements within an LGOS/LSVS instance for a particular IED and control block type.
+ * @param ied - IED SCL element.
+ * @param cbTagName - Either GSEControl or (defaults to) SampledValueControl.
+ * @returns an Element array of Val SCL elements within an LGOS/LSVS node.
+ */
+function getSupervisionCbRefs(ied: Element, cbTagName: string): Element[] {
+  const supervisionType = cbTagName === 'GSEControl' ? 'LGOS' : 'LSVS';
+  const supervisionName = supervisionType === 'LGOS' ? 'GoCBRef' : 'SvCBRef';
+  const selectorString = `LN[lnClass="${supervisionType}"]>DOI[name="${supervisionName}"]>DAI[name="setSrcRef"]>Val,LN0[lnClass="${supervisionType}"]>DOI[name="${supervisionName}"]>DAI[name="setSrcRef"]>Val`;
+  return Array.from(ied.querySelectorAll(selectorString));
+}
+
+/**
+ * Return an array with a single Remove action to delete the supervision element
+ * for the given GOOSE/SMV message and subscriber IED.
+ *
+ * @param controlBlock The GOOSE or SMV message element
+ * @param subscriberIED The subscriber IED
+ * @returns an empty array if removing the supervision is not possible or an array
+ * with a single Delete action that removes the LN if it was created in OpenSCD
+ * or only the supervision structure DOI/DAI/Val if it was created by the user.
+ */
+export function removeSubscriptionSupervision(
+  controlBlock: Element | undefined,
+  subscriberIED: Element | undefined
+): Remove[] {
+  if (!controlBlock || !subscriberIED) return [];
+  const valElement = getSupervisionCbRefs(
+    subscriberIED,
+    controlBlock.tagName
+  ).find(val => val.textContent === controlBlockReference(controlBlock));
+  if (!valElement) return [];
+  const lnElement = valElement.closest('LN0, LN');
+  if (!lnElement || !lnElement.parentElement) return [];
+  // Check if that one has been created by OpenSCD (private section exists)
+  const isOpenScdCreated = lnElement.querySelector(
+    'Private[type="OpenSCD.create"]'
+  );
+  return isOpenScdCreated
+    ? [
+        {
+          node: lnElement,
+        },
+      ]
+    : [
+        {
+          node: valElement.closest('DOI')!,
+        },
+      ];
+}
+
+/**
+ * Counts the max number of LN instances with supervision allowed for
+ * the given control block's type of message.
+ *
+ * @param subscriberIED The subscriber IED
+ * @param controlBlock The GOOSE or SMV message element
+ * @returns The max number of LN instances with supervision allowed
+ */
+export function maxSupervisions(
+  subscriberIED: Element,
+  controlBlock: Element
+): number {
+  const maxAttr = controlBlock.tagName === 'GSEControl' ? 'maxGo' : 'maxSv';
+  const maxValues = parseInt(
+    subscriberIED
+      .querySelector('Services>SupSubscription')
+      ?.getAttribute(maxAttr) ?? '0',
+    10
+  );
+  return Number.isNaN(maxValues) ? 0 : maxValues;
+}
+
+/**
+ * Counts the number of LN instances with proper supervision for the given control block set up.
+ *
+ * @param subscriberIED - The subscriber IED.
+ * @param controlBlock - The GOOSE or SMV message element.
+ * @returns The number of LN instances with a supervision set up.
+ */
+function instantiatedSupervisionsCount(
+  subscriberIED: Element,
+  controlBlock: Element
+): number {
+  const instantiatedValues = getSupervisionCbRefs(
+    subscriberIED,
+    controlBlock.tagName
+  ).filter(val => val.textContent !== '');
+  return instantiatedValues.length;
+}
+
+/**
+ * Checks if the given combination of GOOSE/SMV message and subscriber IED
+ * allows for subscription supervision.
+ * @param controlBlock The GOOSE or SMV message element
+ * @param subscriberIED The subscriber IED
+ * @param supervisionType LSVS or LGOS
+ * @returns true if both controlBlock and subscriberIED meet the requirements for
+ * setting up a supervision for the specified supervision type or false if they don't
+ */
+function isSupervisionAllowed(
+  controlBlock: Element,
+  subscriberIED: Element,
+  supervisionType: string
+): boolean {
+  if (getSclSchemaVersion(subscriberIED.ownerDocument) === '2003') return false;
+  if (subscriberIED.querySelector(`LN[lnClass="${supervisionType}"]`) === null)
+    return false;
+  if (
+    getSupervisionCbRefs(subscriberIED, controlBlock.tagName).find(
+      val => val.textContent === controlBlockReference(controlBlock)
+    )
+  )
+    return false;
+  if (
+    maxSupervisions(subscriberIED, controlBlock) <=
+    instantiatedSupervisionsCount(subscriberIED, controlBlock)
+  )
+    return false;
+
+  return true;
+}
+
+/** Returns an new LN instance available for supervision instantiation
+ *
+ * @param controlBlock The GOOSE or SMV message element
+ * @param subscriberIED The subscriber IED
+ * @returns The LN instance or null if no LN instance could be found or created
+ */
+export function createNewSupervisionLnInst(
+  controlBlock: Element,
+  subscriberIED: Element,
+  supervisionType: string
+): Element | null {
+  const newLN = subscriberIED.ownerDocument.createElementNS(
+    SCL_NAMESPACE,
+    'LN'
+  );
+  const openScdTag = subscriberIED.ownerDocument.createElementNS(
+    SCL_NAMESPACE,
+    'Private'
+  );
+  openScdTag.setAttribute('type', 'OpenSCD.create');
+  newLN.appendChild(openScdTag);
+  newLN.setAttribute('lnClass', supervisionType);
+  const instantiatedSiblings = getSupervisionCbRefs(
+    subscriberIED,
+    controlBlock.tagName
+  )[0]?.closest('LN');
+
+  if (!instantiatedSiblings) return null;
+  newLN.setAttribute(
+    'lnType',
+    instantiatedSiblings?.getAttribute('lnType') ?? ''
+  );
+
+  /* Before we return, we make sure that LN's inst is unique, non-empty
+  and also the minimum inst as the minimum of all available in the IED */
+  const inst = newLN.getAttribute('inst') ?? '';
+  if (inst === '') {
+    const instNumber = minAvailableLogicalNodeInstance(
+      Array.from(
+        subscriberIED.querySelectorAll(`LN[lnClass="${supervisionType}"]`)
+      )
+    );
+    if (!instNumber) return null;
+    newLN.setAttribute('inst', instNumber);
+  }
+  return newLN;
+}
+
+/* TODO: Update and add proper unit tests, needs to be changed for subscriber plugin */
+
+/** Returns an new or existing LN instance available for supervision instantiation
+ *
+ * @param controlBlock The GOOSE or SMV message element
+ * @param subscriberIED The subscriber IED
+ * @returns The LN instance or null if no LN instance could be found or created
+ */
+export function findOrCreateAvailableLNInst(
+  controlBlock: Element,
+  subscriberIED: Element,
+  supervisionType: string
+): Element | null {
+  let availableLN =
+    Array.from(
+      subscriberIED.querySelectorAll(`LN[lnClass="${supervisionType}"]`)
+    ).find(ln => {
+      const supervisionName =
+        supervisionType === 'LGOS' ? 'GoCBRef' : 'SvCBRef';
+      return (
+        ln.querySelector(
+          `DOI[name="${supervisionName}"]>DAI[name="setSrcRef"]>Val`
+        ) === null ||
+        ln.querySelector(
+          `DOI[name="${supervisionName}"]>DAI[name="setSrcRef"]>Val`
+        )?.textContent === ''
+      );
+    }) ?? null;
+
+  if (!availableLN) {
+    availableLN = createNewSupervisionLnInst(
+      controlBlock,
+      subscriberIED,
+      supervisionType
+    );
+  }
+
+  return availableLN;
+}
+
+// IMPORTANT: Has been updated by Daniel to add existingSupervision
+// TODO: But does it correctly check that modifications are allowed? Probably.
+
+/**
+ * Returns an array with a single Insert Edit to create a new
+ * supervision element for the given GOOSE/SMV message and subscriber IED.
+ *
+ * @param controlBlock The GOOSE or SMV message element
+ * @param subscriberIED The subscriber IED
+ * @returns an empty array if instantiation is not possible or an array with a single Create action
+ */
+export function instantiateSubscriptionSupervision(
+  controlBlock: Element | undefined,
+  subscriberIED: Element | undefined,
+  existingSupervision: Element | undefined = undefined
+): Insert[] {
+  const supervisionType =
+    controlBlock?.tagName === 'GSEControl' ? 'LGOS' : 'LSVS';
+  if (
+    !controlBlock ||
+    !subscriberIED ||
+    !isSupervisionAllowed(controlBlock, subscriberIED, supervisionType)
+  )
+    return [];
+  const availableLN =
+    existingSupervision ??
+    findOrCreateAvailableLNInst(controlBlock, subscriberIED, supervisionType);
+  if (
+    !availableLN ||
+    !isSupervisionModificationAllowed(subscriberIED, supervisionType)
+  )
+    return [];
+
+  const edits: Insert[] = [];
+  // If creating new LN element
+  if (!availableLN.parentElement) {
+    const parent = subscriberIED.querySelector(
+      `LN[lnClass="${supervisionType}"]`
+    )?.parentElement;
+    if (parent) {
+      // use Insert edit for supervision LN
+      edits.push({
+        parent,
+        node: availableLN,
+        reference:
+          parent!.querySelector(`LN[lnClass="${supervisionType}"]:last-child`)
+            ?.nextElementSibling ?? null,
+      });
+    }
+  }
+
+  // Insert child elements
+  const supervisionName = supervisionType === 'LGOS' ? 'GoCBRef' : 'SvCBRef';
+
+  let doiElement = availableLN.querySelector(`DOI[name="${supervisionName}"]`);
+  if (!doiElement) {
+    doiElement = subscriberIED.ownerDocument.createElementNS(
+      SCL_NAMESPACE,
+      'DOI'
+    );
+    doiElement.setAttribute('name', supervisionName);
+    edits.push({
+      parent: availableLN!,
+      reference: null,
+      node: doiElement,
+    });
+  }
+
+  let daiElement = availableLN.querySelector(
+    `DOI[name="${supervisionName}"]>DAI[name="setSrcRef"]`
+  );
+  if (!daiElement) {
+    daiElement = subscriberIED.ownerDocument.createElementNS(
+      SCL_NAMESPACE,
+      'DAI'
+    );
+    const srcValRef = subscriberIED.querySelector(
+      `LN[lnClass="${supervisionType}"]>DOI[name="${supervisionName}"]>DAI[name="setSrcRef"]`
+    );
+    daiElement.setAttribute('name', 'setSrcRef');
+
+    // transfer valKind and valImport from first supervision instance if present
+    if (srcValRef?.hasAttribute('valKind'))
+      daiElement.setAttribute('valKind', srcValRef.getAttribute('valKind')!);
+    if (srcValRef?.hasAttribute('valImport'))
+      daiElement.setAttribute(
+        'valImport',
+        srcValRef.getAttribute('valImport')!
+      );
+    edits.push({
+      parent: doiElement!,
+      reference: null,
+      node: daiElement,
+    });
+  }
+
+  let valElement = availableLN.querySelector(`Val`);
+  if (!valElement) {
+    valElement = subscriberIED.ownerDocument.createElementNS(
+      SCL_NAMESPACE,
+      'Val'
+    );
+  }
+  valElement.textContent = controlBlockReference(controlBlock);
+  edits.push({
+    parent: daiElement!,
+    reference: null,
+    node: valElement,
+  });
+
+  return edits;
 }
