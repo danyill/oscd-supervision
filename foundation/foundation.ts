@@ -1,3 +1,5 @@
+import { findFCDAs, isSubscribed } from './subscription/subscription.js';
+
 /**
  * Extract the 'name' attribute from the given XML element.
  * @param element - The element to extract name from.
@@ -34,4 +36,61 @@ export function compareNames(a: Element | string, b: Element | string): number {
     );
 
   return 0;
+}
+
+const serviceTypeControlBlockTags: Partial<Record<string, string[]>> = {
+  GOOSE: ['GSEControl'],
+  SMV: ['SampledValueControl'],
+  Report: ['ReportControl'],
+  NONE: ['LogControl', 'GSEControl', 'SampledValueControl', 'ReportControl'],
+};
+
+// NOTE: This function modified extensively from the core function to more efficiently handle the srcXXX attributes on ExtRefs
+export function findControlBlocks(
+  extRef: Element,
+  controlType: 'GOOSE' | 'SMV'
+): Element[] {
+  if (!isSubscribed(extRef)) return [];
+
+  const extRefValues = ['iedName', 'srcPrefix', 'srcCBName', 'srcLNInst'];
+  const [srcIedName, srcPrefix, srcCBName, srcLNInst] = extRefValues.map(
+    attr => extRef.getAttribute(attr) ?? ''
+  );
+
+  const srcLDInst =
+    extRef.getAttribute('srcLDInst') ?? extRef.getAttribute('ldInst');
+  const srcLNClass = extRef.getAttribute('srcLNClass') ?? 'LLN0';
+
+  const controlBlockFromSrc = Array.from(
+    extRef
+      .closest('SCL')!
+      .querySelectorAll(
+        `IED[name="${srcIedName}"] LDevice[inst="${srcLDInst}"] > LN0[lnClass="${srcLNClass}"]${
+          srcPrefix !== '' ? `[prefix="${srcPrefix}"]` : ''
+        }${srcLNInst !== '' ? `[inst="${srcLNInst}"]` : ''} > ${
+          serviceTypeControlBlockTags[controlType]
+        }[name="${srcCBName}"]`
+      )
+  );
+
+  if (controlBlockFromSrc) return controlBlockFromSrc;
+
+  // Ed 1 this is more complicated as control blocks not explicitly
+  console.log('Ed 1');
+
+  const fcdas = findFCDAs(extRef);
+  const cbTags =
+    serviceTypeControlBlockTags[extRef.getAttribute('serviceType') ?? 'NONE'] ??
+    [];
+  const controlBlocks = new Set(
+    fcdas.flatMap(fcda => {
+      const dataSet = fcda.parentElement!;
+      const dsName = dataSet.getAttribute('name') ?? '';
+      const anyLN = dataSet.parentElement!;
+      return cbTags
+        .flatMap(tag => Array.from(anyLN.getElementsByTagName(tag)))
+        .filter(cb => cb.getAttribute('datSet') === dsName);
+    })
+  );
+  return Array.from(controlBlocks);
 }

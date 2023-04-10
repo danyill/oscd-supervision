@@ -1,17 +1,16 @@
-import { msg } from '@lit/localize';
 import {
   css,
   html,
   LitElement,
   nothing,
+  PropertyValueMap,
   PropertyValues,
-  svg,
   TemplateResult,
 } from 'lit';
-import { ifDefined } from 'lit/directives/if-defined.js';
-
-// import { msg } from '@lit/localize';
+import { msg } from '@lit/localize';
 import { property, state } from 'lit/decorators.js';
+
+import { newEditEvent, Remove } from '@openscd/open-scd-core';
 
 import '@material/mwc-button';
 import '@material/mwc-formfield';
@@ -28,6 +27,7 @@ import './foundation/components/oscd-filtered-list.js';
 import { styles } from './foundation/styles/styles.js';
 import {
   compareNames,
+  findControlBlocks,
   getDescriptionAttribute,
   getNameAttribute,
 } from './foundation/foundation.js';
@@ -37,22 +37,20 @@ import './foundation/components/oscd-filter-button.js';
 import type { SelectedItemsChangedEvent } from './foundation/components/oscd-filter-button.js';
 import { identity } from './foundation/identities/identity.js';
 
-const controlTag = { GOOSE: 'GSEControl', SV: 'SampledValueControl' };
-const supervisionLnType = { GOOSE: 'LGOS', SV: 'LSVS' };
-const supervisionCBRef = { GOOSE: 'GoCBRef', SV: 'SvCBRef' };
+import {
+  gooseActionIcon,
+  smvActionIcon,
+  gooseIcon,
+  smvIcon,
+} from './foundation/icons.js';
+import {
+  controlBlockReference,
+  isSupervisionModificationAllowed,
+} from './foundation/subscription/subscription.js';
 
-const pathsSVG = {
-  gooseIcon: svg`<path fill="currentColor" d="M11,7H15V9H11V15H13V11H15V15A2,2 0 0,1 13,17H11A2,2 0 0,1 9,15V9A2,2 0 0,1 11,7M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4Z" />`,
-  lNIcon: svg`<path stroke="currentColor" stroke-width="1.89" fill="none" d="m4.2 0.945h18.1c1.8 0 3.25 1.45 3.25 3.25v11.6c0 1.8-1.45 3.25-3.25 3.25h-18.1c-1.8 0-3.25-1.45-3.25-3.25v-11.6c0-1.8 1.45-3.25 3.25-3.25z"/><path fill="currentColor" d="m5.71 15v-10h1.75v8.39h4.47v1.62z"/><path fill="currentColor" d="m18.2 15-3.63-7.71q0.107 1.12 0.107 1.8v5.9h-1.55v-10h1.99l3.69 7.77q-0.107-1.07-0.107-1.95v-5.82h1.55v10z"/>`,
-  smvIcon: svg`<path fill="currentColor" d="M11,7H15V9H11V11H13A2,2 0 0,1 15,13V15A2,2 0 0,1 13,17H9V15H13V13H11A2,2 0 0,1 9,11V9A2,2 0 0,1 11,7M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4Z" />`,
-};
-
-const gooseIcon = svg`<svg style="width:24px;height:24px" viewBox="0 0 24 24">${pathsSVG.gooseIcon}</svg>`;
-const lNIcon = svg`<svg style="width:24px;height:24px" viewBox="0 0 24 24">${pathsSVG.lNIcon}</svg>`;
-const smvIcon = svg`<svg style="width:24px;height:24px" viewBox="0 0 24 24">${pathsSVG.smvIcon}</svg>`;
-
-const gooseActionIcon = svg`<svg slot="offIcon" style="width:24px;height:24px" viewBox="0 0 24 24">${pathsSVG.gooseIcon}</svg>`;
-const smvActionIcon = svg`<svg slot="onIcon" style="width:24px;height:24px" viewBox="0 0 24 24">${pathsSVG.smvIcon}</svg>`;
+const controlTag = { GOOSE: 'GSEControl', SMV: 'SampledValueControl' };
+const supervisionLnType = { GOOSE: 'LGOS', SMV: 'LSVS' };
+const supervisionCBRef = { GOOSE: 'GoCBRef', SMV: 'SvCBRef' };
 
 function removeIedPart(identityString: string | number): string {
   return `${identityString}`.split('>').slice(1).join('>').trim().slice(1);
@@ -60,7 +58,7 @@ function removeIedPart(identityString: string | number): string {
 
 function getSupervisionControlBlockRef(
   ln: Element,
-  type: 'GOOSE' | 'SV'
+  type: 'GOOSE' | 'SMV'
 ): string | null {
   return (
     ln.querySelector(
@@ -69,269 +67,11 @@ function getSupervisionControlBlockRef(
   );
 }
 
-/**
- * Simple function to check if the attribute of the Left Side has the same value as the attribute of the Right Element.
- *
- * @param leftElement   - The Left Element to check against.
- * @param rightElement  - The Right Element to check.
- * @param attributeName - The name of the attribute to check.
- */
-export function sameAttributeValue(
-  leftElement: Element | undefined,
-  rightElement: Element | undefined,
-  attributeName: string
-): boolean {
+function extRefIsType(extRef: Element, type: 'GOOSE' | 'SMV'): boolean | null {
   return (
-    (leftElement?.getAttribute(attributeName) ?? '') ===
-    (rightElement?.getAttribute(attributeName) ?? '')
+    extRef.getAttribute('serviceType') === type ||
+    extRef.getAttribute('pServT') === type
   );
-}
-
-/**
- * Simple function to check if the attribute of the Left Side has the same value as the attribute of the Right Element.
- *
- * @param leftElement        - The Left Element to check against.
- * @param leftAttributeName  - The name of the attribute (left) to check against.
- * @param rightElement       - The Right Element to check.
- * @param rightAttributeName - The name of the attribute (right) to check.
- */
-export function sameAttributeValueDiffName(
-  leftElement: Element | undefined,
-  leftAttributeName: string,
-  rightElement: Element | undefined,
-  rightAttributeName: string
-): boolean {
-  return (
-    (leftElement?.getAttribute(leftAttributeName) ?? '') ===
-    (rightElement?.getAttribute(rightAttributeName) ?? '')
-  );
-}
-
-export type SclEdition = '2003' | '2007B' | '2007B4';
-export function getSclSchemaVersion(doc: Document): SclEdition {
-  const scl: Element = doc.documentElement;
-  const edition =
-    (scl.getAttribute('version') ?? '2003') +
-    (scl.getAttribute('revision') ?? '') +
-    (scl.getAttribute('release') ?? '');
-  return <SclEdition>edition;
-}
-
-export const serviceTypes: Partial<Record<string, string>> = {
-  ReportControl: 'Report',
-  GSEControl: 'GOOSE',
-  SampledValueControl: 'SMV',
-};
-
-/**
- * If needed check version specific attributes against FCDA Element.
- *
- * @param controlTagName     - Indicates which type of control element.
- * @param controlElement - The Control Element to check against.
- * @param extRefElement  - The Ext Ref Element to check.
- */
-function checkEditionSpecificRequirements(
-  controlTagName: 'SampledValueControl' | 'GSEControl',
-  controlElement: Element | undefined,
-  extRefElement: Element
-): boolean {
-  // For 2003 Edition no extra check needed.
-  if (getSclSchemaVersion(extRefElement.ownerDocument) === '2003') {
-    return true;
-  }
-
-  const lDeviceElement = controlElement?.closest('LDevice') ?? undefined;
-  const lnElement = controlElement?.closest('LN0') ?? undefined;
-
-  // For the 2007B and 2007B4 Edition we need to check some extra attributes.
-  return (
-    (extRefElement.getAttribute('serviceType') ?? '') ===
-      serviceTypes[controlTagName] &&
-    sameAttributeValueDiffName(
-      extRefElement,
-      'srcLDInst',
-      lDeviceElement,
-      'inst'
-    ) &&
-    sameAttributeValueDiffName(
-      extRefElement,
-      'srcPrefix',
-      lnElement,
-      'prefix'
-    ) &&
-    sameAttributeValueDiffName(
-      extRefElement,
-      'srcLNClass',
-      lnElement,
-      'lnClass'
-    ) &&
-    sameAttributeValueDiffName(extRefElement, 'srcLNInst', lnElement, 'inst') &&
-    sameAttributeValueDiffName(
-      extRefElement,
-      'srcCBName',
-      controlElement,
-      'name'
-    )
-  );
-}
-
-/**
- * Check if specific attributes from the ExtRef Element are the same as the ones from the FCDA Element
- * and also if the IED Name is the same. If that is the case this ExtRef subscribes to the selected FCDA
- * Element.
- *
- * @param controlTagName - Indicates which type of control element.
- * @param controlElement - The Control Element to check against.
- * @param fcdaElement    - The FCDA Element to check against.
- * @param extRefElement  - The Ext Ref Element to check.
- */
-export function isSubscribedTo(
-  controlTagName: 'SampledValueControl' | 'GSEControl',
-  controlElement: Element | undefined,
-  fcdaElement: Element | undefined,
-  extRefElement: Element
-): boolean {
-  return (
-    extRefElement.getAttribute('iedName') ===
-      fcdaElement?.closest('IED')?.getAttribute('name') &&
-    sameAttributeValue(fcdaElement, extRefElement, 'ldInst') &&
-    sameAttributeValue(fcdaElement, extRefElement, 'prefix') &&
-    sameAttributeValue(fcdaElement, extRefElement, 'lnClass') &&
-    sameAttributeValue(fcdaElement, extRefElement, 'lnInst') &&
-    sameAttributeValue(fcdaElement, extRefElement, 'doName') &&
-    sameAttributeValue(fcdaElement, extRefElement, 'daName') &&
-    checkEditionSpecificRequirements(
-      controlTagName,
-      controlElement,
-      extRefElement
-    )
-  );
-}
-
-/**
- * Creates a string pointer to the control block element.
- *
- * @param controlBlock The GOOSE or SMV message element
- * @returns null if the control block is undefined or a string pointer to the control block element
- */
-export function controlBlockReference(
-  controlBlock: Element | undefined
-): string | null {
-  if (!controlBlock) return null;
-  const anyLn = controlBlock.closest('LN,LN0');
-  const prefix = anyLn?.getAttribute('prefix') ?? '';
-  const lnClass = anyLn?.getAttribute('lnClass');
-  const lnInst = anyLn?.getAttribute('inst') ?? '';
-  const ldInst = controlBlock.closest('LDevice')?.getAttribute('inst');
-  const iedName = controlBlock.closest('IED')?.getAttribute('name');
-  const cbName = controlBlock.getAttribute('name');
-  if (!cbName && !iedName && !ldInst && !lnClass) return null;
-  return `${iedName}${ldInst}/${prefix}${lnClass}${lnInst}.${cbName}`;
-}
-
-export function findFCDAs(extRef: Element): Element[] {
-  if (extRef.tagName !== 'ExtRef' || extRef.closest('Private')) return [];
-
-  const [iedName, ldInst, prefix, lnClass, lnInst, doName, daName] = [
-    'iedName',
-    'ldInst',
-    'prefix',
-    'lnClass',
-    'lnInst',
-    'doName',
-    'daName',
-  ].map(name => extRef.getAttribute(name));
-  const ied = Array.from(extRef.ownerDocument.getElementsByTagName('IED')).find(
-    element =>
-      element.getAttribute('name') === iedName && !element.closest('Private')
-  );
-  if (!ied) return [];
-
-  return Array.from(ied.getElementsByTagName('FCDA'))
-    .filter(item => !item.closest('Private'))
-    .filter(
-      fcda =>
-        (fcda.getAttribute('ldInst') ?? '') === (ldInst ?? '') &&
-        (fcda.getAttribute('prefix') ?? '') === (prefix ?? '') &&
-        (fcda.getAttribute('lnClass') ?? '') === (lnClass ?? '') &&
-        (fcda.getAttribute('lnInst') ?? '') === (lnInst ?? '') &&
-        (fcda.getAttribute('doName') ?? '') === (doName ?? '') &&
-        (fcda.getAttribute('daName') ?? '') === (daName ?? '')
-    );
-}
-
-const serviceTypeControlBlockTags: Partial<Record<string, string[]>> = {
-  GOOSE: ['GSEControl'],
-  SMV: ['SampledValueControl'],
-  Report: ['ReportControl'],
-  NONE: ['LogControl', 'GSEControl', 'SampledValueControl', 'ReportControl'],
-};
-
-/**
- * Check if the ExtRef is already subscribed to a FCDA Element.
- *
- * @param extRefElement - The Ext Ref Element to check.
- */
-export function isSubscribed(extRefElement: Element): boolean {
-  return (
-    extRefElement.hasAttribute('iedName') &&
-    extRefElement.hasAttribute('ldInst') &&
-    extRefElement.hasAttribute('prefix') &&
-    extRefElement.hasAttribute('lnClass') &&
-    extRefElement.hasAttribute('lnInst') &&
-    extRefElement.hasAttribute('doName') &&
-    extRefElement.hasAttribute('daName')
-  );
-}
-
-// NOTE: This function modified from the core function to more efficiently handle the srcXXX
-export function findControlBlocks(
-  extRef: Element,
-  controlType: 'GOOSE' | 'SV'
-): Element[] {
-  if (!isSubscribed(extRef)) return [];
-
-  const extRefValues = ['iedName', 'srcPrefix', 'srcCBName', 'srcLNInst'];
-  const [srcIedName, srcPrefix, srcCBName, srcLNInst] = extRefValues.map(
-    attr => extRef.getAttribute(attr) ?? ''
-  );
-
-  const srcLDInst =
-    extRef.getAttribute('srcLDInst') ?? extRef.getAttribute('ldInst');
-  const srcLNClass = extRef.getAttribute('srcLNClass') ?? 'LLN0';
-
-  const controlBlockFromSrc = Array.from(
-    extRef
-      .closest('SCL')!
-      .querySelectorAll(
-        `IED[name="${srcIedName}"] LDevice[inst="${srcLDInst}"] > LN0[lnClass="${srcLNClass}"]${
-          srcPrefix !== '' ? `[prefix="${srcPrefix}"]` : ''
-        }${srcLNInst !== '' ? `[inst="${srcLNInst}"]` : ''} > ${
-          controlTag[controlType]
-        }[name="${srcCBName}"]`
-      )
-  );
-
-  if (controlBlockFromSrc) return controlBlockFromSrc;
-
-  // Ed 1 this is more complicated as control blocks not explicitly
-  console.log('Ed 1');
-
-  const fcdas = findFCDAs(extRef);
-  const cbTags =
-    serviceTypeControlBlockTags[extRef.getAttribute('serviceType') ?? 'NONE'] ??
-    [];
-  const controlBlocks = new Set(
-    fcdas.flatMap(fcda => {
-      const dataSet = fcda.parentElement!;
-      const dsName = dataSet.getAttribute('name') ?? '';
-      const anyLN = dataSet.parentElement!;
-      return cbTags
-        .flatMap(tag => Array.from(anyLN.getElementsByTagName(tag)))
-        .filter(cb => cb.getAttribute('datSet') === dsName);
-    })
-  );
-  return Array.from(controlBlocks);
 }
 
 // import { translate } from 'lit-translate';
@@ -345,7 +85,7 @@ export default class Supervision extends LitElement {
 
   @property() docName!: string;
 
-  @property() controlType: 'GOOSE' | 'SV' = 'GOOSE';
+  @property() controlType: 'GOOSE' | 'SMV' = 'GOOSE';
 
   @state()
   private get iedList(): Element[] {
@@ -360,6 +100,9 @@ export default class Supervision extends LitElement {
   selectedIEDs: string[] = [];
 
   @state()
+  connectedControlBlockIds: Set<string> = new Set();
+
+  @state()
   private get selectedIed(): Element | undefined {
     // When there is no IED selected, or the selected IED has no parent (IED has been removed)
     // select the first IED from the List.
@@ -370,6 +113,38 @@ export default class Supervision extends LitElement {
       });
     }
     return undefined;
+  }
+
+  storeConnectedControlBlocks() {
+    if (!this.selectedIed) return;
+    const extRefs =
+      Array.from(this.selectedIed.getElementsByTagName('ExtRef')) ?? [];
+
+    this.connectedControlBlockIds = new Set();
+    extRefs.forEach(extRef => {
+      if (extRefIsType(extRef, 'GOOSE')) {
+        findControlBlocks(extRef, 'GOOSE').forEach(cb =>
+          this.connectedControlBlockIds.add(`${identity(cb)}`)
+        );
+      } else if (extRefIsType(extRef, 'SMV')) {
+        findControlBlocks(extRef, 'SMV').forEach(cb =>
+          this.connectedControlBlockIds.add(`${identity(cb)}`)
+        );
+      } else {
+        // unknown type, must check both
+        findControlBlocks(extRef, 'SMV').forEach(cb =>
+          this.connectedControlBlockIds.add(`${identity(cb)}`)
+        );
+        findControlBlocks(extRef, 'SMV').forEach(cb =>
+          this.connectedControlBlockIds.add(`${identity(cb)}`)
+        );
+      }
+    });
+    this.requestUpdate();
+  }
+
+  protected firstUpdated(): void {
+    this.storeConnectedControlBlocks();
   }
 
   protected updated(_changedProperties: PropertyValues): void {
@@ -386,39 +161,56 @@ export default class Supervision extends LitElement {
         }
       }
     }
+
+    if (_changedProperties.has('selectedIed') && this.selectedIed) {
+      this.storeConnectedControlBlocks();
+    }
   }
 
-  // <LN lnClass="LGOS" inst="2" lnType="Dummy.LGOS">
-  // 					<Private type="OpenSCD.create"/>
-  // 					<DOI name="GoCBRef">
-  // 						<DAI name="setSrcRef">
-  // 							<Val>GOOSE_Publisher2QB2_Disconnector/LLN0.GOOSE2</Val>
-  // 						</DAI>
-  // 					</DOI>
-  // 				</LN>
-
   renderSupervisionNode(lN: Element): TemplateResult {
+    const description = getDescriptionAttribute(lN);
     return html`<div class="item-grouper">
       <mwc-list-item
-        class="sup-ln mitem"
         noninteractive
+        ?twoline=${!!description}
+        class="sup-ln mitem"
         graphic="icon"
-        data-ln=${identity(lN)}
+        data-ln="${identity(lN)}"
         value="${identity(lN)}"
       >
         <span>${removeIedPart(identity(lN))}</span>
-        <span slot="secondary">${identity(lN)}</span>
+        ${description
+          ? html`<span slot="secondary">${description}</span>`
+          : nothing}
         <mwc-icon slot="graphic">monitor_heart</mwc-icon>
       </mwc-list-item>
+      <!-- TODO: In future add with wizards 
       <mwc-icon-button
         class="sup-btn"
         icon="edit"
-        data-ln=${identity(lN)}
-      ></mwc-icon-button>
+      ></mwc-icon-button> -->
       <mwc-icon-button
         class="sup-btn"
         icon="delete"
-        data-ln=${identity(lN)}
+        label="${msg('Delete supervision logical node')}"
+        data-ln="${identity(lN)}"
+        ?disabled=${!isSupervisionModificationAllowed(
+          this.selectedIed!,
+          supervisionLnType[this.controlType]
+        )}
+        @click=${() => {
+          if (
+            isSupervisionModificationAllowed(
+              this.selectedIed!,
+              supervisionLnType[this.controlType]
+            )
+          ) {
+            const removeEdit: Remove = {
+              node: lN,
+            };
+            this.dispatchEvent(newEditEvent(removeEdit));
+          }
+        }}
       ></mwc-icon-button>
     </div>`;
   }
@@ -443,79 +235,16 @@ export default class Supervision extends LitElement {
     return [];
   }
 
-  // TODO: Add edit wizard
-  // <mwc-icon-button
-  //                     slot="meta"
-  //                     icon="edit"
-  //                     class="interactive"
-  //                     @click=${() => this.openEditWizard(controlElement)}
-  //                   ></mwc-icon-button>
-
-  renderSupervisionLNs(): TemplateResult {
-    // const supervisionControlBlockReferences = this.getSupervisionLNs().map(cb =>
-    //   getSupervisionControlBlockRef(cb, this.controlType)
-    // );
-
-    // const supervisedControls = this.getControlElements()
-    //   .filter(control =>
-    //     supervisionControlBlockReferences.includes(
-    //       controlBlockReference(control)
-    //     )
-    //   )
-    //   .forEach();
-    // console.log(supervisedControls);
+  renderSupervisionLNs(onlyUsed = false, onlyUnused = false): TemplateResult {
     if (!this.selectedIed) return html``;
-
-    const extRefs =
-      Array.from(this.selectedIed.getElementsByTagName('ExtRef')) ?? [];
-
-    const connectedControlBlockIds: Set<string> = new Set();
-    extRefs.forEach(extRef => {
-      const cbs = findControlBlocks(extRef, this.controlType);
-      cbs.forEach(cb => connectedControlBlockIds.add(`${identity(cb)}`));
-    });
-
-    // <mwc-list class="column" activatable>
-
-    return html`<mwc-list class="column mlist">
-      ${this.getSupervisionLNs()
-        .filter(lN => {
-          const cbRef = getSupervisionControlBlockRef(lN, this.controlType);
-          return cbRef !== null && cbRef !== '';
-        })
-        .map(lN => {
-          const cbRef = getSupervisionControlBlockRef(lN, this.controlType);
-          const controlElement =
-            this.getControlElements().find(
-              control => cbRef === controlBlockReference(control)
-            ) ?? null;
-          const cbSubscribed = extRefs.some(extRef =>
-            findControlBlocks(extRef, this.controlType)
-              .map(cb => controlBlockReference(cb))
-              .includes(cbRef)
-          );
-
-          console.log('cbSubscribed', cbSubscribed);
-          return html`${this.renderSupervisionNode(lN)}`;
-        })}
-    </mwc-list>`;
+    return html` ${this.getSupervisionLNs()
+      .filter(lN => {
+        const cbRef = getSupervisionControlBlockRef(lN, this.controlType);
+        const cbRefUsed = cbRef !== null && cbRef !== '';
+        return (cbRefUsed && onlyUsed) || (!cbRefUsed && onlyUnused);
+      })
+      .map(lN => html`${this.renderSupervisionNode(lN)}`)}`;
   }
-
-  //  </mwc-list>
-  //   <mwc-icon-button
-  //   class="sup-btn"
-  //   icon="link"
-  //   data-ln=${identity(lN)}
-  // ></mwc-icon-button>
-
-  // ${this.renderControl(
-  //   controlElement,
-  //   connectedControlBlockIds
-  // )}
-  // <mwc-icon-button
-  //   class="interactive column"
-  //   icon="link"
-  // ></mwc-icon-button>
 
   renderIcons(): TemplateResult {
     return html`<mwc-list class="column remover mlist">
@@ -527,8 +256,13 @@ export default class Supervision extends LitElement {
         .map(
           () => html`
             <mwc-icon-button
-              class="interactive column button mitem unselected"
+              label="${msg('Remove supervision of this control block')}"
+              class="column button mitem"
               icon="conversion_path"
+              ?disabled=${!isSupervisionModificationAllowed(
+                this.selectedIed!,
+                supervisionLnType[this.controlType]
+              )}
             ></mwc-icon-button>
           `
         )}
@@ -537,15 +271,15 @@ export default class Supervision extends LitElement {
 
   renderControl(
     controlElement: Element | null,
-    connectedControlBlockIds: Set<string>
+    interactive: boolean = false
   ): TemplateResult {
     if (!controlElement) return html``;
 
-    const isCbConnected = connectedControlBlockIds.has(
+    const isCbConnected = this.connectedControlBlockIds.has(
       `${identity(controlElement)}`
     );
     return html`<mwc-list-item
-      noninteractive
+      ?noninteractive=${!interactive}
       graphic="icon"
       class="mitem"
       twoline
@@ -554,28 +288,37 @@ export default class Supervision extends LitElement {
     >
       <span>${identity(controlElement)} </span>
       <span slot="secondary"
-        >${controlElement?.getAttribute('datSet') ?? 'No dataset'}</span
-      >
+        >${controlElement?.getAttribute('datSet') ?? 'No dataset'}
+        ${getDescriptionAttribute(controlElement) ??
+        getDescriptionAttribute(controlElement)}
+      </span>
       <mwc-icon slot="graphic"
         >${this.controlType === 'GOOSE' ? gooseIcon : smvIcon}</mwc-icon
       >
       ${isCbConnected
-        ? html`<mwc-icon slot="meta">data_check</mwc-icon>`
+        ? html`<!-- TODO: The title is non-interactive so not much use - can be fixed? --><mwc-icon
+              class="interactive"
+              slot="meta"
+              title="${msg('This IED subscribes to this control block')}"
+              >data_check</mwc-icon
+            >`
         : undefined}
     </mwc-list-item> `;
   }
 
-  renderControls(): TemplateResult {
+  renderUnusedControls(): TemplateResult {
     if (!this.selectedIed) return html``;
+    return html` ${this.getControlElements()
+      .filter(
+        control => !this.connectedControlBlockIds.has(`${identity(control)}`)
+      )
+      .map(
+        controlElement => html`${this.renderControl(controlElement, true)}`
+      )}`;
+  }
 
-    const extRefs =
-      Array.from(this.selectedIed.getElementsByTagName('ExtRef')) ?? [];
-
-    const connectedControlBlockIds: Set<string> = new Set();
-    extRefs.forEach(extRef => {
-      const cbs = findControlBlocks(extRef, this.controlType);
-      cbs.forEach(cb => connectedControlBlockIds.add(`${identity(cb)}`));
-    });
+  renderUsedControls(): TemplateResult {
+    if (!this.selectedIed) return html``;
 
     return html`<mwc-list class="column mlist">
       ${this.getSupervisionLNs()
@@ -590,47 +333,19 @@ export default class Supervision extends LitElement {
               control => cbRef === controlBlockReference(control)
             ) ?? null;
 
-          return html`${this.renderControl(
-            controlElement,
-            connectedControlBlockIds
-          )}`;
+          return html`${this.renderControl(controlElement)}`;
         })}</mwc-list
     >`;
   }
-
-  //   return html`<mwc-list activatable>
-  //     ${this.getControlElements().map(controlElement => {
-  //       console.log(controlBlockReference(controlElement));
-
-  //       return html` <mwc-list-item
-  //         noninteractive
-  //         graphic="icon"
-  //         twoline
-  //         value="${identity(controlElement)}"
-  //       >
-  //         <span
-  //           >${getNameAttribute(controlElement)}
-  //           ${getDescriptionAttribute(controlElement)
-  //             ? html`${getDescriptionAttribute(controlElement)}`
-  //             : nothing}</span
-  //         >
-  //         <span slot="secondary">${identity(controlElement)}</span>
-  //         <mwc-icon slot="graphic"
-  //           >${this.controlType === 'GOOSE' ? gooseIcon : smvIcon}</mwc-icon
-  //         >
-  //       </mwc-list-item>`;
-  //     })}
-  //   </mwc-list>`;
-  // }
 
   renderControlSelector(): TemplateResult {
     return html`<div id="controlSelector" class="column">
       <mwc-icon-button-toggle
         id="controlType"
-        title="${msg('Change between GOOSE and Sampled Value publishers')}"
+        label="${msg('Change between GOOSE and Sampled Value publishers')}"
         @click=${() => {
           if (this.controlType === 'GOOSE') {
-            this.controlType = 'SV';
+            this.controlType = 'SMV';
           } else {
             this.controlType = 'GOOSE';
           }
@@ -639,6 +354,19 @@ export default class Supervision extends LitElement {
       </mwc-icon-button-toggle>
       <h2 id="cbTitle">${msg(this.controlType)} Control Blocks</h2>
     </div>`;
+  }
+
+  renderInfo(): TemplateResult {
+    return html`${this.selectedIed &&
+    !isSupervisionModificationAllowed(
+      this.selectedIed,
+      supervisionLnType[this.controlType]
+    )
+      ? html`<mwc-icon-button
+          title="${msg('This IED does not support supervision modification')}"
+          icon="warning"
+        ></mwc-icon-button>`
+      : nothing}`;
   }
 
   renderIedSelector(): TemplateResult {
@@ -687,21 +415,36 @@ export default class Supervision extends LitElement {
     return html`
     <div id="controlSection">
       ${this.renderIedSelector()}
+      ${this.renderInfo()}
     </div>
     <section>
       ${this.renderControlSelector()}
       <div class="column remover"></div>
       <h2 class="column">Supervision Logical Nodes</h2>
-      ${this.renderControls()}
+      ${this.renderUsedControls()}
       ${this.renderIcons()}
-      ${this.renderSupervisionLNs()}
+      <mwc-list class="column mlist">
+        ${this.renderSupervisionLNs(true, false)}
+      </mwc-list>
       </div>
-    </section>`;
+    </section>
+    <section class="unused">
+      <div class="column-unused">
+        <h2>${msg(`Unsupervised ${msg(this.controlType)} Control Blocks`)}</h2>
+      <oscd-filtered-list activatable>
+        ${this.renderUnusedControls()}
+      </oscd-filtered-list>
+      </div>
+      <hr>
+      <div class="column-unused">
+        <h2>${msg('Unused Supervision Logical Nodes')}</h2>
+        <oscd-filtered-list activatable>
+          ${this.renderSupervisionLNs(false, true)}
+        </oscd-filtered-list>
+      </div>
+    </section>
+    `;
   }
-
-  //             ${this.renderControls()}
-  // ${this.renderIcons()}
-  //           ${this.renderControls()}
 
   static styles = css`
     ${styles}
@@ -720,9 +463,10 @@ export default class Supervision extends LitElement {
       justify-content: flex-start;
     }
 
-    #iedSelector {
-      padding-left: 20px;
-      padding-top: 20px;
+    #controlSection {
+      display: flex;
+      justify-content: space-between;
+      padding: 20px;
     }
 
     section {
@@ -730,6 +474,10 @@ export default class Supervision extends LitElement {
       flex-wrap: wrap;
       column-gap: 20px;
       padding: 20px;
+    }
+
+    section.unused {
+      flex-wrap: nowrap;
     }
 
     #supervisionItems {
@@ -740,6 +488,11 @@ export default class Supervision extends LitElement {
     .sup-ln,
     .sup-btn {
       display: inline-flex;
+    }
+
+    .sup-btn {
+      /* TODO: Discuss with Christian - actually need a theme in OpenSCD core! */
+      --mdc-theme-text-disabled-on-light: LightGray;
     }
 
     .sup-ln {
@@ -766,9 +519,12 @@ export default class Supervision extends LitElement {
 
     .mitem.button {
       justify-content: space-around;
+      /* TODO: Discuss with Christian - actually need a theme in OpenSCD core! */
+      --mdc-theme-text-disabled-on-light: LightGray;
     }
 
     .mitem.button:hover {
+      /* TODO: Convert to OpenSCD theme! */
       color: red;
     }
 
@@ -777,6 +533,12 @@ export default class Supervision extends LitElement {
       flex: 1 1 33%;
       flex-direction: column;
       justify-content: space-between;
+    }
+
+    .column-unused {
+      display: flex;
+      flex: 1 1 50%;
+      flex-direction: column;
     }
   `;
 }
