@@ -9,7 +9,7 @@ import {
 import { msg } from '@lit/localize';
 import { property, query, state } from 'lit/decorators.js';
 
-import { newEditEvent, Remove } from '@openscd/open-scd-core';
+import { Edit, newEditEvent, Remove } from '@openscd/open-scd-core';
 
 import '@material/mwc-button';
 import '@material/mwc-formfield';
@@ -46,6 +46,7 @@ import { styles } from './foundation/styles/styles.js';
 
 import {
   controlBlockReference,
+  instantiateSubscriptionSupervision,
   isSupervisionModificationAllowed,
   removeSubscriptionSupervision,
 } from './foundation/subscription/subscription.js';
@@ -127,6 +128,8 @@ export default class Supervision extends LitElement {
   selectedControl: Element | null = null;
 
   selectedSupervision: Element | null = null;
+
+  newSupervision = false;
 
   @query('#unusedControls')
   selectedUnusedControlsListUI!: List;
@@ -327,10 +330,10 @@ export default class Supervision extends LitElement {
       this.selectedUnusedSupervisionUI!.activated = false;
     }
 
-    this.selectedUnusedControlsListUI.layout(true);
-    this.selectedUnusedSupervisionsListUI.layout(true);
+    // this.selectedUnusedControlsListUI.layout(true);
+    // this.selectedUnusedSupervisionsListUI.layout(true);
 
-    this.requestUpdate();
+    // this.requestUpdate();
   }
 
   // TODO: Need to work through how to show delete button with ca-d
@@ -546,6 +549,29 @@ export default class Supervision extends LitElement {
     </div>`;
   }
 
+  private createSupervision(
+    selectedControl: Element,
+    selectedSupervision: Element | null,
+    newSupervision: boolean
+  ) {
+    let edits: Edit[];
+
+    if (newSupervision) {
+      edits = instantiateSubscriptionSupervision(
+        selectedControl,
+        this.selectedIed
+      );
+    } else {
+      edits = instantiateSubscriptionSupervision(
+        selectedControl,
+        this.selectedIed,
+        selectedSupervision ?? undefined
+      );
+    }
+    this.dispatchEvent(newEditEvent(edits));
+    this.updateSupervisedControlBlocks();
+  }
+
   private renderUnusedControlList(): TemplateResult {
     return html`<oscd-filtered-list
       id="unusedControls"
@@ -566,14 +592,23 @@ export default class Supervision extends LitElement {
 
         this.selectedControl = selectedControl;
 
-        if (this.selectedControl && this.selectedSupervision) {
+        if (
+          this.selectedControl &&
+          (this.selectedSupervision || this.newSupervision)
+        ) {
           console.log(
             'connecting',
             identity(this.selectedControl),
             identity(this.selectedSupervision)
           );
+          this.createSupervision(
+            this.selectedControl,
+            this.selectedSupervision,
+            this.newSupervision
+          );
           this.selectedControl = null;
           this.selectedSupervision = null;
+          this.newSupervision = false;
         }
 
         this.clearListSelections();
@@ -599,16 +634,28 @@ export default class Supervision extends LitElement {
         const selectedSupervision = <Element>(
           this.doc.querySelector(selector('LN', supervision ?? 'Unknown'))
         );
+        if (supervision === 'NEW') {
+          this.newSupervision = true;
+        }
 
         this.selectedSupervision = selectedSupervision;
-        if (this.selectedControl && this.selectedSupervision) {
+        if (
+          this.selectedControl &&
+          (this.selectedSupervision || this.newSupervision)
+        ) {
           console.log(
             'connecting',
             identity(this.selectedControl),
             identity(this.selectedSupervision)
           );
+          this.createSupervision(
+            this.selectedControl,
+            this.selectedSupervision,
+            this.newSupervision
+          );
           this.selectedControl = null;
           this.selectedSupervision = null;
+          this.newSupervision = false;
         }
 
         this.clearListSelections();
