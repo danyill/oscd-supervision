@@ -107,6 +107,9 @@ export default class Supervision extends LitElement {
   selectedIEDs: string[] = [];
 
   @state()
+  allControlBlockIds: Array<string> = [];
+
+  @state()
   connectedControlBlockIds: Array<string> = [];
 
   @state()
@@ -143,11 +146,6 @@ export default class Supervision extends LitElement {
   @query('#unusedSupervisions mwc-list-item[selected]')
   selectedUnusedSupervisionUI?: ListItem;
 
-  protected updateControlBlockInfo() {
-    this.updateConnectedControlBlocks();
-    this.updateSupervisedControlBlocks();
-  }
-
   protected updateConnectedControlBlocks() {
     if (!this.selectedIed) return;
     const extRefs =
@@ -157,19 +155,27 @@ export default class Supervision extends LitElement {
     extRefs.forEach(extRef => {
       if (extRefIsType(extRef, 'GOOSE')) {
         findControlBlocks(extRef, 'GOOSE').forEach(cb =>
-          connectedControlBlockIds.add(`${identity(cb)}`)
+          connectedControlBlockIds.add(
+            controlBlockReference(cb) ?? 'Unknown Control'
+          )
         );
       } else if (extRefIsType(extRef, 'SMV')) {
         findControlBlocks(extRef, 'SMV').forEach(cb =>
-          connectedControlBlockIds.add(`${identity(cb)}`)
+          connectedControlBlockIds.add(
+            controlBlockReference(cb) ?? 'Unknown Control'
+          )
         );
       } else {
         // unknown type, must check both
         findControlBlocks(extRef, 'GOOSE').forEach(cb =>
-          connectedControlBlockIds.add(`${identity(cb)}`)
+          connectedControlBlockIds.add(
+            controlBlockReference(cb) ?? 'Unknown Control'
+          )
         );
         findControlBlocks(extRef, 'SMV').forEach(cb =>
-          connectedControlBlockIds.add(`${identity(cb)}`)
+          connectedControlBlockIds.add(
+            controlBlockReference(cb) ?? 'Unknown Control'
+          )
         );
       }
     });
@@ -195,12 +201,31 @@ export default class Supervision extends LitElement {
             control => cbRef === controlBlockReference(control)
           ) ?? null;
         if (controlElement) {
-          const controlId = `${identity(controlElement)}`;
-          if (!this.supervisedControlBlockIds.includes(controlId))
-            this.supervisedControlBlockIds.push(controlId);
+          if (!this.supervisedControlBlockIds.includes(cbRef))
+            this.supervisedControlBlockIds.push(cbRef);
         }
       }
     });
+  }
+
+  protected updateAllControlBlocks() {
+    this.allControlBlockIds = [];
+    this.allControlBlockIds.push(
+      ...this.getControlElements('GOOSE').map(
+        cb => controlBlockReference(cb) ?? 'Unknown Control'
+      )
+    );
+    this.allControlBlockIds.push(
+      ...this.getControlElements('SMV').map(
+        cb => controlBlockReference(cb) ?? 'Unknown Control'
+      )
+    );
+  }
+
+  protected updateControlBlockInfo() {
+    this.updateAllControlBlocks();
+    this.updateConnectedControlBlocks();
+    this.updateSupervisedControlBlocks();
   }
 
   protected firstUpdated(): void {
@@ -231,24 +256,53 @@ export default class Supervision extends LitElement {
   // eslint-disable-next-line class-methods-use-this
   renderUnusedSupervisionNode(lN: Element): TemplateResult {
     const description = getDescriptionAttribute(lN);
+    const controlBlockRef = getSupervisionControlBlockRef(lN);
+    const invalidControlBlock =
+      controlBlockRef !== '' &&
+      !this.allControlBlockIds.includes(
+        controlBlockRef ?? 'Unknown control block'
+      ) &&
+      controlBlockRef !== null;
     return html`
       <mwc-list-item
-        ?twoline=${!!description}
+        ?twoline=${!!description || invalidControlBlock}
         class="sup-ln mitem"
         graphic="icon"
+        ?hasMeta=${invalidControlBlock}
         data-supervision="${identity(lN)}"
         value="${identity(lN)}"
       >
         <span>${removeIedPart(identity(lN))}</span>
-        ${description
-          ? html`<span slot="secondary">${description}</span>`
+        ${description || invalidControlBlock
+          ? html`<span slot="secondary"
+              >${description}${description && invalidControlBlock
+                ? ' - '
+                : ''}${invalidControlBlock
+                ? `Invalid Control Block reference: "${controlBlockRef}"`
+                : ''}</span
+            >`
           : nothing}
         <mwc-icon slot="graphic">monitor_heart</mwc-icon>
+        ${invalidControlBlock
+          ? html`<mwc-icon slot="meta">warning</mwc-icon>`
+          : ''}
       </mwc-list-item>
+      <!-- TODO: Tidy up invalid control block reference code -->
       <!-- TODO: In future add wizards -->
     `;
   }
 
+  //   TODO: If GoCBRef has a DAI with name = d should we show this in the description?
+  // <DOI name="GoCBRef">
+  // <DAI name="d" valKind="RO" valImport="true">
+  //   <Val>Setting RxGOOSE1 GoCBRef</Val>
+  // </DAI>
+  // <DAI name="setSrcRef" valKind="RO" valImport="true">
+  //   <Val/>
+  // </DAI>
+  // </DOI>
+
+  // TODO: Ask Jakob about valImport = true and only supporting Ed 2.1?
   renderSupervisionNode(lN: Element, interactive: boolean): TemplateResult {
     const description = getDescriptionAttribute(lN);
     return html`<div class="item-grouper">
@@ -345,7 +399,9 @@ export default class Supervision extends LitElement {
     return html` ${this.getSupervisionLNs(this.controlType)
         .filter(lN => {
           const cbRef = getSupervisionControlBlockRef(lN);
-          const cbRefUsed = cbRef !== null && cbRef !== '';
+          const cbRefUsed = this.allControlBlockIds.includes(
+            cbRef ?? 'Unknown Control'
+          );
           return (cbRefUsed && onlyUsed) || (!cbRefUsed && onlyUnused);
         })
         .map(lN => html`${this.renderUnusedSupervisionNode(lN)}`)}
@@ -369,7 +425,9 @@ export default class Supervision extends LitElement {
     return html` ${this.getSupervisionLNs(this.controlType)
       .filter(lN => {
         const cbRef = getSupervisionControlBlockRef(lN);
-        const cbRefUsed = cbRef !== null && cbRef !== '';
+        const cbRefUsed = this.allControlBlockIds.includes(
+          cbRef ?? 'Unknown Control'
+        );
         return (cbRefUsed && onlyUsed) || (!cbRefUsed && onlyUnused);
       })
       .map(lN => html`${this.renderSupervisionNode(lN, onlyUnused)}`)}`;
@@ -380,7 +438,7 @@ export default class Supervision extends LitElement {
       ${this.getSupervisionLNs(this.controlType)
         .filter(lN => {
           const cbRef = getSupervisionControlBlockRef(lN);
-          return cbRef !== null && cbRef !== '';
+          return this.allControlBlockIds.includes(cbRef ?? 'Unknown Control');
         })
         .map(
           lN => html`
@@ -403,6 +461,29 @@ export default class Supervision extends LitElement {
                     controlBlock,
                     this.selectedIed
                   );
+                  // The removal doesn't appear to be processed correctly in open-scd-core. Why not?
+                  //   <DOI name="GoCBRef">
+                  //   <DAI name="setSrcRef">
+                  //     <Val/>
+                  //   <Val>XATBZA1P1Master/LLN0.B30_Trip_Bus_1</Val></DAI>
+                  // </DOI>
+
+                  // handleRemove the reference is a #text value. Is that OK? I don't think so...
+                  // we remove the child
+                  // and we create an Insert action? Why??
+                  //
+                  // function handleRemove({ node }: Remove): Insert | [] {
+                  //   const { parentNode: parent, nextSibling: reference } = node;
+                  //   node.parentNode?.removeChild(node);
+                  //   if (parent)
+                  //     return {
+                  //       node,
+                  //       parent,
+                  //       reference,
+                  //     };
+                  //   return [];
+                  // }
+
                   this.dispatchEvent(newEditEvent(removeEdit));
                   // does this need to be awaited?
                   // await this.updateComplete;
@@ -447,8 +528,12 @@ export default class Supervision extends LitElement {
     return html`${this.getControlElements(this.controlType)
       .filter(
         control =>
-          this.connectedControlBlockIds.includes(`${identity(control)}`) &&
-          !this.supervisedControlBlockIds.includes(`${identity(control)}`)
+          this.connectedControlBlockIds.includes(
+            controlBlockReference(control) ?? 'Unknown Control'
+          ) &&
+          !this.supervisedControlBlockIds.includes(
+            controlBlockReference(control) ?? 'Unknown Control'
+          )
       )
       .map(
         controlElement => html`${this.renderControl(controlElement, true)}`
@@ -462,10 +547,11 @@ export default class Supervision extends LitElement {
       ${this.getSupervisionLNs(this.controlType)
         .filter(lN => {
           const cbRef = getSupervisionControlBlockRef(lN);
-          return cbRef !== null && cbRef !== '';
+          return this.allControlBlockIds.includes(cbRef ?? 'Unknown Control');
         })
         .map(lN => {
           const cbRef = getSupervisionControlBlockRef(lN);
+
           const controlElement =
             this.getControlElements(this.controlType).find(
               control => cbRef === controlBlockReference(control)
@@ -505,7 +591,9 @@ export default class Supervision extends LitElement {
       supervisionLnType[this.controlType]
     )
       ? html`<mwc-icon-button
-          title="${msg('This IED does not support supervision modification')}"
+          title="${msg(
+            'This IED does not support supervision modification. Only viewing supervisions is supported.'
+          )}"
           icon="warning"
         ></mwc-icon-button>`
       : nothing}`;
@@ -686,22 +774,29 @@ export default class Supervision extends LitElement {
       </mwc-list>
       </div>
     </section>
-    <section class="unused">
-      <div class="column-unused">
-        <h2>${
-          this.controlType === 'GOOSE'
-            ? msg(`Subscribed GOOSE Control Blocks`)
-            : msg(`Subscribed SV Control Blocks`)
-        }</h2>
-        ${this.renderUnusedControlList()}
-      </div>
-      <hr>
-      <div class="column-unused">
-        <h2>${msg('Available Supervision Logical Nodes')}</h2>
-        ${this.renderUnusedSupervisionList()}
-      </div>
-    </section>
-    `;
+    ${
+      this.selectedIed &&
+      isSupervisionModificationAllowed(
+        this.selectedIed,
+        supervisionLnType[this.controlType]
+      )
+        ? html`<section class="unused">
+            <div class="column-unused">
+              <h2>
+                ${this.controlType === 'GOOSE'
+                  ? msg(`Subscribed GOOSE Control Blocks`)
+                  : msg(`Subscribed SV Control Blocks`)}
+              </h2>
+              ${this.renderUnusedControlList()}
+            </div>
+            <hr />
+            <div class="column-unused">
+              <h2>${msg('Available Supervision Logical Nodes')}</h2>
+              ${this.renderUnusedSupervisionList()}
+            </div>
+          </section>`
+        : nothing
+    }`;
   }
 
   static styles = css`

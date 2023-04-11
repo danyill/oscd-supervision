@@ -462,6 +462,7 @@ export function findOrCreateAvailableLNInst(
     ).find(ln => {
       const supervisionName =
         supervisionType === 'LGOS' ? 'GoCBRef' : 'SvCBRef';
+      // TODO: What about overriding incorrect values? Do we need an edit to do manual fixes?
       return (
         ln.querySelector(
           `DOI[name="${supervisionName}"]>DAI[name="setSrcRef"]>Val`
@@ -498,7 +499,7 @@ export function instantiateSubscriptionSupervision(
   controlBlock: Element | undefined,
   subscriberIED: Element | undefined,
   existingSupervision: Element | undefined = undefined
-): Insert[] {
+): (Insert | Remove)[] {
   const supervisionType =
     controlBlock?.tagName === 'GSEControl' ? 'LGOS' : 'LSVS';
   if (
@@ -516,7 +517,7 @@ export function instantiateSubscriptionSupervision(
   )
     return [];
 
-  const edits: Insert[] = [];
+  const edits: (Insert | Remove)[] = [];
   // If creating new LN element
   if (!availableLN.parentElement) {
     const parent = subscriberIED.querySelector(
@@ -580,12 +581,17 @@ export function instantiateSubscriptionSupervision(
   }
 
   let valElement = availableLN.querySelector(`Val`);
-  if (!valElement) {
-    valElement = subscriberIED.ownerDocument.createElementNS(
-      SCL_NAMESPACE,
-      'Val'
-    );
-  }
+  // TODO: Ask ca-d. Can't update an elements "content" directly so must remove and recreate?
+
+  if (valElement) edits.push({ node: valElement });
+
+  valElement = subscriberIED.ownerDocument.createElementNS(
+    SCL_NAMESPACE,
+    'Val'
+  );
+  // TODO: Fixed, this is not done like this or we do an update action
+  // TODO: We can't do that! This is a crime which must also be fixed in oscd-subscriber-later-binding
+  // This is not using the Action / Edit API !!!
   valElement.textContent = controlBlockReference(controlBlock);
   edits.push({
     parent: daiElement!,
@@ -595,3 +601,26 @@ export function instantiateSubscriptionSupervision(
 
   return edits;
 }
+
+// Old Code
+// let valElement = availableLN.querySelector(`Val`);
+//   // TODO: Ask ca-d. Can't update an elements "content" directly so must remove and recreate?
+//   if (valElement) {
+//     edits.push({node: valElement})
+//   }
+
+//   if (!valElement) {
+//     valElement = subscriberIED.ownerDocument.createElementNS(
+//       SCL_NAMESPACE,
+//       'Val'
+//     );
+//     // TODO: Fixed, this is not done like this or we do an update action
+//     // TODO: We can't do that! This is a crime which must also be fixed in oscd-subscriber-later-binding
+//     // This is not using the Action / Edit API !!!
+//     valElement.textContent = controlBlockReference(controlBlock);
+//     edits.push({
+//       parent: daiElement!,
+//       reference: null,
+//       node: valElement,
+//     });
+//   }

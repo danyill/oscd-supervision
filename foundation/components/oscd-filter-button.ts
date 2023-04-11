@@ -11,6 +11,8 @@ import { OscdFilteredList } from './oscd-filtered-list.js';
 export interface SelectedItemsChangedDetail {
   selectedItems: string[];
 }
+
+// TODO: Why is CustomEventInit a linter error?
 export type SelectedItemsChangedEvent = CustomEvent<SelectedItemsChangedDetail>;
 function newSelectedItemsChangedEvent(
   selectedItems: string[],
