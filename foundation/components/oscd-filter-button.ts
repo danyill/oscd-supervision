@@ -12,10 +12,11 @@ export interface SelectedItemsChangedDetail {
   selectedItems: string[];
 }
 
-// TODO: Why is CustomEventInit a linter error?
 export type SelectedItemsChangedEvent = CustomEvent<SelectedItemsChangedDetail>;
 function newSelectedItemsChangedEvent(
   selectedItems: string[],
+  // TODO: There is an issue in OpenSCD core for DOM types causing this
+  // eslint-disable-next-line no-undef
   eventInitDict?: CustomEventInit<SelectedItemsChangedDetail>
 ): SelectedItemsChangedEvent {
   return new CustomEvent<SelectedItemsChangedDetail>('selected-items-changed', {

@@ -18,7 +18,6 @@
     "declaration": true,
     "incremental": true,
     "skipLibCheck": true,
-    "types": ["node", "object-inspect"]
   },
   "include": ["**/*.ts"]
 }
