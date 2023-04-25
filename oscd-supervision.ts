@@ -48,6 +48,7 @@ import {
   controlBlockReference,
   instantiateSubscriptionSupervision,
   isSupervisionModificationAllowed,
+  maxSupervisions,
   removeSubscriptionSupervision,
 } from './foundation/subscription/subscription.js';
 
@@ -77,6 +78,29 @@ function extRefIsType(extRef: Element, type: 'GOOSE' | 'SMV'): boolean | null {
   );
 }
 
+function closest(array: number[], target: number): number {
+  return array.sort((a, b) => Math.abs(target - a) - Math.abs(target - b))[0];
+}
+
+const progressIcons: Record<string, string> = {
+  0: 'circle',
+  10: 'clock_loader_10',
+  20: 'clock_loader_20',
+  40: 'clock_loader_40',
+  60: 'clock_loader_60',
+  80: 'clock_loader_80',
+  90: 'clock_loader_90',
+  100: 'stroke_full',
+};
+
+function getUsageIcon(percent: number): string {
+  const closestIconPercent = closest(
+    Object.keys(progressIcons).map(i => parseInt(i, 10)),
+    percent
+  );
+  return progressIcons[`${closestIconPercent}`];
+}
+
 // import { translate } from 'lit-translate';
 
 /**
@@ -86,13 +110,11 @@ export default class Supervision extends LitElement {
   @property({ attribute: false })
   doc!: XMLDocument;
 
-  // TODO: Do I need to track edit count with a state?
-
   @property() docName!: string;
 
-  @property() controlType: 'GOOSE' | 'SMV' = 'GOOSE';
-
   @property() editCount!: number;
+
+  @property() controlType: 'GOOSE' | 'SMV' = 'GOOSE';
 
   @state()
   private get iedList(): Element[] {
@@ -265,8 +287,8 @@ export default class Supervision extends LitElement {
       controlBlockRef !== null;
     return html`
       <mwc-list-item
-        ?twoline=${!!description || invalidControlBlock}
-        class="sup-ln mitem"
+        twoline
+        class="mitem"
         graphic="icon"
         ?hasMeta=${invalidControlBlock}
         data-supervision="${identity(lN)}"
@@ -303,12 +325,12 @@ export default class Supervision extends LitElement {
   // </DOI>
 
   // TODO: Ask Jakob about valImport = true and only supporting Ed 2.1?
+  // eslint-disable-next-line class-methods-use-this
   renderSupervisionNode(lN: Element, interactive: boolean): TemplateResult {
     const description = getDescriptionAttribute(lN);
-    return html`<div class="item-grouper">
+    return html`
       <mwc-list-item
         ?noninteractive=${!interactive}
-        ?twoline=${!!description}
         class="sup-ln mitem"
         graphic="icon"
         data-ln="${identity(lN)}"
@@ -325,31 +347,7 @@ export default class Supervision extends LitElement {
         class="sup-btn"
         icon="edit"
       ></mwc-icon-button> -->
-      <mwc-icon-button
-        class="sup-btn"
-        icon="delete"
-        label="${msg('Delete supervision logical node')}"
-        data-lN="${identity(lN)}"
-        ?disabled=${!isSupervisionModificationAllowed(
-          this.selectedIed!,
-          supervisionLnType[this.controlType]
-        )}
-        @click=${() => {
-          if (
-            isSupervisionModificationAllowed(
-              this.selectedIed!,
-              supervisionLnType[this.controlType]
-            )
-          ) {
-            const removeEdit: Remove = {
-              node: lN,
-            };
-            this.dispatchEvent(newEditEvent(removeEdit));
-            this.updateSupervisedControlBlocks();
-          }
-        }}
-      ></mwc-icon-button>
-    </div>`;
+    `;
   }
 
   private getSupervisionLNs(controlType: 'GOOSE' | 'SMV'): Element[] {
@@ -390,21 +388,27 @@ export default class Supervision extends LitElement {
     // this.requestUpdate();
   }
 
-  // TODO: Need to work through how to show delete button with ca-d
+  private getSupLNsWithCBs(
+    used: boolean = true,
+    unused: boolean = false
+  ): Element[] {
+    return this.getSupervisionLNs(this.controlType).filter(lN => {
+      const cbRef = getSupervisionControlBlockRef(lN);
+      const cbRefUsed = this.allControlBlockIds.includes(
+        cbRef ?? 'Unknown Control'
+      );
+      return (cbRefUsed && used) || (!cbRefUsed && unused);
+    });
+  }
+
   protected renderUnusedSupervisionLNs(
-    onlyUsed = false,
-    onlyUnused = false
+    used = false,
+    unused = false
   ): TemplateResult {
     if (!this.selectedIed) return html``;
-    return html` ${this.getSupervisionLNs(this.controlType)
-        .filter(lN => {
-          const cbRef = getSupervisionControlBlockRef(lN);
-          const cbRefUsed = this.allControlBlockIds.includes(
-            cbRef ?? 'Unknown Control'
-          );
-          return (cbRefUsed && onlyUsed) || (!cbRefUsed && onlyUnused);
-        })
-        .map(lN => html`${this.renderUnusedSupervisionNode(lN)}`)}
+    return html` ${this.getSupLNsWithCBs(used, unused).map(
+        lN => html`${this.renderUnusedSupervisionNode(lN)}`
+      )}
       <mwc-list-item
         hasMeta
         class="sup-ln mitem"
@@ -412,88 +416,124 @@ export default class Supervision extends LitElement {
         data-supervision="NEW"
         value="New Supervision LN"
       >
-        <span>New Supervision LN</span>
-        <mwc-icon slot="graphic">add_circle</mwc-icon>
+        <span>${msg('New Supervision LN')}</span>
+        <mwc-icon slot="graphic">library_add</mwc-icon>
       </mwc-list-item>`;
   }
 
-  private renderSupervisionLNs(
+  private renderDeleteIcons(
+    used: boolean = true,
+    unused: boolean = false
+  ): TemplateResult {
+    return html`<mwc-list class="column mlist deleter">
+      <!-- show additional item to allow delete button alignment -->
+      ${unused
+        ? html`<mwc-list-item twoline noninteractive></mwc-list-item>`
+        : nothing}
+      ${this.getSupLNsWithCBs(used, unused).map(
+        lN => html`
+          <mwc-list-item
+            ?noninteractive=${!isSupervisionModificationAllowed(
+              this.selectedIed!,
+              supervisionLnType[this.controlType]
+            )}
+            twoline
+            graphic="icon"
+            data-ln="${identity(lN)}"
+            value="${identity(lN)}"
+          >
+            <mwc-icon
+              class="column button mitem"
+              icon="delete"
+              slot="graphic"
+              label="${msg('Delete supervision logical node')}"
+              data-lN="${identity(lN)}"
+              @click=${() => {
+                if (
+                  isSupervisionModificationAllowed(
+                    this.selectedIed!,
+                    supervisionLnType[this.controlType]
+                  )
+                ) {
+                  const removeEdit: Remove = {
+                    node: lN,
+                  };
+                  this.dispatchEvent(newEditEvent(removeEdit));
+                  this.updateSupervisedControlBlocks();
+                }
+              }}
+              >delete</mwc-icon
+            >
+          </mwc-list-item>
+        `
+      )}
+      <!-- show additional item to allow delete button alignment -->
+      ${unused
+        ? html`<mwc-list-item twoline noninteractive></mwc-list-item>`
+        : nothing}
+    </mwc-list>`;
+  }
+
+  private renderUsedSupervisionLNs(
     onlyUsed = false,
     onlyUnused = false
   ): TemplateResult {
     if (!this.selectedIed) return html``;
-    return html` ${this.getSupervisionLNs(this.controlType)
-      .filter(lN => {
-        const cbRef = getSupervisionControlBlockRef(lN);
-        const cbRefUsed = this.allControlBlockIds.includes(
-          cbRef ?? 'Unknown Control'
-        );
-        return (cbRefUsed && onlyUsed) || (!cbRefUsed && onlyUnused);
-      })
-      .map(lN => html`${this.renderSupervisionNode(lN, onlyUnused)}`)}`;
-  }
-
-  private renderSupervisionRemovalIcons(): TemplateResult {
-    return html`<mwc-list class="column remover mlist">
+    return html`<mwc-list class="column mlist">
       ${this.getSupervisionLNs(this.controlType)
         .filter(lN => {
           const cbRef = getSupervisionControlBlockRef(lN);
-          return this.allControlBlockIds.includes(cbRef ?? 'Unknown Control');
+          const cbRefUsed = this.allControlBlockIds.includes(
+            cbRef ?? 'Unknown Control'
+          );
+          return (cbRefUsed && onlyUsed) || (!cbRefUsed && onlyUnused);
         })
-        .map(
-          lN => html`
-            <mwc-icon-button
+        .map(lN => html`${this.renderSupervisionNode(lN, onlyUnused)}`)}
+    </mwc-list>`;
+  }
+
+  private renderUsedSupervisionRemovalIcons(): TemplateResult {
+    return html`<mwc-list class="column remover mlist">
+      ${this.getSupLNsWithCBs(true, false).map(
+        lN => html`
+          <mwc-list-item
+            ?noninteractive=${!isSupervisionModificationAllowed(
+              this.selectedIed!,
+              supervisionLnType[this.controlType]
+            )}
+            graphic="icon"
+            twoline
+            data-ln="${identity(lN)}"
+            value="${identity(lN)}"
+            @click=${() => {
+              const cbRef = getSupervisionControlBlockRef(lN);
+              const controlBlock =
+                this.getControlElements(this.controlType).find(
+                  control => cbRef === controlBlockReference(control)
+                ) ?? null;
+              if (controlBlock) {
+                const removeEdit = removeSubscriptionSupervision(
+                  controlBlock,
+                  this.selectedIed
+                );
+
+                this.dispatchEvent(newEditEvent(removeEdit));
+                // does this need to be awaited?
+                // await this.updateComplete;
+                this.updateSupervisedControlBlocks();
+                this.requestUpdate();
+              }
+            }}
+          >
+            <mwc-icon
+              slot="graphic"
               label="${msg('Remove supervision of this control block')}"
               class="column button mitem"
-              icon="conversion_path"
-              ?disabled=${!isSupervisionModificationAllowed(
-                this.selectedIed!,
-                supervisionLnType[this.controlType]
-              )}
-              @click=${() => {
-                const cbRef = getSupervisionControlBlockRef(lN);
-                const controlBlock =
-                  this.getControlElements(this.controlType).find(
-                    control => cbRef === controlBlockReference(control)
-                  ) ?? null;
-                if (controlBlock) {
-                  const removeEdit = removeSubscriptionSupervision(
-                    controlBlock,
-                    this.selectedIed
-                  );
-                  // The removal doesn't appear to be processed correctly in open-scd-core. Why not?
-                  //   <DOI name="GoCBRef">
-                  //   <DAI name="setSrcRef">
-                  //     <Val/>
-                  //   <Val>XATBZA1P1Master/LLN0.B30_Trip_Bus_1</Val></DAI>
-                  // </DOI>
-
-                  // handleRemove the reference is a #text value. Is that OK? I don't think so...
-                  // we remove the child
-                  // and we create an Insert action? Why??
-                  //
-                  // function handleRemove({ node }: Remove): Insert | [] {
-                  //   const { parentNode: parent, nextSibling: reference } = node;
-                  //   node.parentNode?.removeChild(node);
-                  //   if (parent)
-                  //     return {
-                  //       node,
-                  //       parent,
-                  //       reference,
-                  //     };
-                  //   return [];
-                  // }
-
-                  this.dispatchEvent(newEditEvent(removeEdit));
-                  // does this need to be awaited?
-                  // await this.updateComplete;
-                  this.updateSupervisedControlBlocks();
-                  this.requestUpdate();
-                }
-              }}
-            ></mwc-icon-button>
-          `
-        )}
+              >conversion_path</mwc-icon
+            >
+          </mwc-list-item>
+        `
+      )}
     </mwc-list>`;
   }
 
@@ -506,12 +546,11 @@ export default class Supervision extends LitElement {
     return html`<mwc-list-item
       ?noninteractive=${!unused}
       graphic="icon"
-      class="mitem"
       twoline
       data-control="${identity(controlElement)}"
       value="${identity(controlElement)}"
     >
-      <span>${identity(controlElement)} </span>
+      <span>${identity(controlElement)}</span>
       <span slot="secondary"
         >${controlElement?.getAttribute('datSet') ?? 'No dataset'}
         ${getDescriptionAttribute(controlElement) ??
@@ -544,21 +583,16 @@ export default class Supervision extends LitElement {
     if (!this.selectedIed) return html``;
 
     return html`<mwc-list class="column mlist">
-      ${this.getSupervisionLNs(this.controlType)
-        .filter(lN => {
-          const cbRef = getSupervisionControlBlockRef(lN);
-          return this.allControlBlockIds.includes(cbRef ?? 'Unknown Control');
-        })
-        .map(lN => {
-          const cbRef = getSupervisionControlBlockRef(lN);
+      ${this.getSupLNsWithCBs(true, false).map(lN => {
+        const cbRef = getSupervisionControlBlockRef(lN);
 
-          const controlElement =
-            this.getControlElements(this.controlType).find(
-              control => cbRef === controlBlockReference(control)
-            ) ?? null;
+        const controlElement =
+          this.getControlElements(this.controlType).find(
+            control => cbRef === controlBlockReference(control)
+          ) ?? null;
 
-          return html`${this.renderControl(controlElement)}`;
-        })}</mwc-list
+        return html`${this.renderControl(controlElement)}`;
+      })}</mwc-list
     >`;
   }
 
@@ -585,18 +619,48 @@ export default class Supervision extends LitElement {
   }
 
   private renderInfo(): TemplateResult {
-    return html`${this.selectedIed &&
-    !isSupervisionModificationAllowed(
-      this.selectedIed,
-      supervisionLnType[this.controlType]
-    )
-      ? html`<mwc-icon-button
-          title="${msg(
-            'This IED does not support supervision modification. Only viewing supervisions is supported.'
-          )}"
-          icon="warning"
-        ></mwc-icon-button>`
-      : nothing}`;
+    const instantiatedSupervisionLNs = this.getSupervisionLNs(
+      this.controlType
+    ).length;
+    const maxSupervisionLNs = this.selectedIed
+      ? maxSupervisions(this.selectedIed, controlTag[this.controlType])
+      : 0;
+
+    const percentInstantiated =
+      (instantiatedSupervisionLNs / maxSupervisionLNs) * 100;
+
+    const usedSupLNs = this.getSupLNsWithCBs(true, false).length;
+    const totalSupLNs = this.getSupLNsWithCBs(true, true).length;
+    const percentUsed = (usedSupLNs / totalSupLNs) * 100;
+
+    return html`<div class="side-icons">
+      ${instantiatedSupervisionLNs > 0
+        ? html`<div class="usage-group">
+            <mwc-icon>${getUsageIcon(percentInstantiated)}</mwc-icon>
+            <span class="usage"
+              >${instantiatedSupervisionLNs}
+              ${maxSupervisionLNs !== 0 ? `/ ${maxSupervisionLNs}` : ''}
+              ${msg('instantiated')}</span
+            >
+          </div>`
+        : nothing}
+      <div class="usage-group">
+        <mwc-icon>${getUsageIcon(percentUsed)}</mwc-icon>
+        <span class="usage">${usedSupLNs} / ${totalSupLNs} ${msg('used')}</span>
+      </div>
+      ${this.selectedIed &&
+      !isSupervisionModificationAllowed(
+        this.selectedIed,
+        supervisionLnType[this.controlType]
+      )
+        ? html`<mwc-icon-button
+            title="${msg(
+              'This IED does not support supervision modification. Only viewing supervisions is supported.'
+            )}"
+            icon="warning"
+          ></mwc-icon-button>`
+        : nothing}
+    </div>`;
   }
 
   private renderIedSelector(): TemplateResult {
@@ -767,11 +831,11 @@ export default class Supervision extends LitElement {
       ${this.renderControlSelector()}
       <div class="column remover"></div>
       <h2 class="column">Supervision Logical Nodes</h2>
+      <div class="column deleter"></div>
       ${this.renderUsedControls()}
-      ${this.renderSupervisionRemovalIcons()}
-      <mwc-list class="column mlist">
-        ${this.renderSupervisionLNs(true, false)}
-      </mwc-list>
+      ${this.renderUsedSupervisionRemovalIcons()}
+      ${this.renderUsedSupervisionLNs(true, false)}
+      ${this.renderDeleteIcons(true, false)}
       </div>
     </section>
     ${
@@ -791,8 +855,21 @@ export default class Supervision extends LitElement {
             </div>
             <hr />
             <div class="column-unused">
-              <h2>${msg('Available Supervision Logical Nodes')}</h2>
-              ${this.renderUnusedSupervisionList()}
+              <h2>
+                ${msg('Available Supervision Logical Nodes')}
+                <mwc-icon-button
+                  id="createNewLN"
+                  title="${msg('New Supervision LN')}"
+                  icon="library_add"
+                  @click=${() => {
+                    console.log('Add new supervision');
+                  }}
+                ></mwc-icon-button>
+              </h2>
+              <div class="available-grouper">
+                ${this.renderUnusedSupervisionList()}
+                ${this.renderDeleteIcons(false, true)}
+              </div>
             </div>
           </section>`
         : nothing
@@ -805,6 +882,22 @@ export default class Supervision extends LitElement {
     :host {
       width: 100vw;
       height: 100vh;
+    }
+
+    h1,
+    h2,
+    h3,
+    .usage {
+      color: var(--mdc-theme-on-surface);
+      font-family: 'Roboto', sans-serif;
+      font-weight: 300;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      margin: 0px;
+      line-height: 48px;
+      padding-left: 0.3em;
+      transition: background-color 150ms linear;
     }
 
     #cbTitle,
@@ -820,6 +913,7 @@ export default class Supervision extends LitElement {
       display: flex;
       justify-content: space-between;
       padding: 20px;
+      align-items: center;
     }
 
     section {
@@ -838,14 +932,10 @@ export default class Supervision extends LitElement {
       flex-direction: row;
     }
 
-    .sup-ln,
-    .sup-btn {
-      display: inline-flex;
-    }
-
     .sup-btn {
       /* TODO: Discuss with Christian - actually need a theme in OpenSCD core! */
       --mdc-theme-text-disabled-on-light: LightGray;
+      max-width: 50px;
     }
 
     .sup-ln {
@@ -853,8 +943,15 @@ export default class Supervision extends LitElement {
       width: 100%;
     }
 
+    #iedFilter,
+    #controlType {
+      --mdc-icon-size: 32px;
+    }
+
     .button {
       --mdc-icon-size: 32px;
+      /* center icon */
+      padding-right: 5px;
     }
 
     .item-grouper {
@@ -862,7 +959,8 @@ export default class Supervision extends LitElement {
       align-items: center;
     }
 
-    .remover {
+    .remover,
+    .deleter {
       max-width: 50px;
     }
 
@@ -881,9 +979,20 @@ export default class Supervision extends LitElement {
       color: red;
     }
 
+    .usage-group {
+      display: flex;
+      align-items: center;
+      padding-right: 10px;
+    }
+
+    .side-icons {
+      display: flex;
+    }
+
     .column {
       display: flex;
-      flex: 1 1 33%;
+      /* A little hacky - the fixed width columns will allow the others to grow */
+      flex: 1 1 40%;
       flex-direction: column;
       justify-content: space-between;
     }
@@ -892,6 +1001,19 @@ export default class Supervision extends LitElement {
       display: flex;
       flex: 1 1 48%;
       flex-direction: column;
+    }
+
+    #createNewLN {
+      float: right;
+    }
+
+    .available-grouper {
+      display: flex;
+      justify-content: space-between;
+    }
+
+    #unusedSupervisions {
+      width: 100%;
     }
   `;
 }

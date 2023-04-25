@@ -831,3 +831,30 @@ export const relatives: Record<
     children: [...tEquipmentContainerSequence, 'Voltage', 'Bay', 'Function'],
   },
 };
+
+export function getReference(parent: Element, tag: SCLTag): Element | null {
+  const parentTag = parent.tagName;
+  const children = Array.from(parent.children);
+
+  if (
+    parentTag === 'Services' ||
+    parentTag === 'SettingGroups' ||
+    !isSCLTag(parentTag)
+  )
+    return children.find(child => child.tagName === tag) ?? null;
+
+  const sequence = relatives[parentTag]?.children ?? [];
+  let index = sequence.findIndex(element => element === tag);
+
+  if (index < 0) return null;
+
+  let nextSibling: Element | undefined;
+  while (index < sequence.length && !nextSibling) {
+    // eslint-disable-next-line no-loop-func
+    nextSibling = children.find(child => child.tagName === sequence[index]);
+    // eslint-disable-next-line no-plusplus
+    index++;
+  }
+
+  return nextSibling ?? null;
+}

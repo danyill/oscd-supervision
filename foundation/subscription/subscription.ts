@@ -323,19 +323,20 @@ export function removeSubscriptionSupervision(
       ];
 }
 
+// TODO: Daniel has changed this function
 /**
  * Counts the max number of LN instances with supervision allowed for
  * the given control block's type of message.
  *
  * @param subscriberIED The subscriber IED
- * @param controlBlock The GOOSE or SMV message element
+ * @param controlBlockType The GOOSE or SMV message element
  * @returns The max number of LN instances with supervision allowed
  */
 export function maxSupervisions(
   subscriberIED: Element,
-  controlBlock: Element
+  controlBlockType: string
 ): number {
-  const maxAttr = controlBlock.tagName === 'GSEControl' ? 'maxGo' : 'maxSv';
+  const maxAttr = controlBlockType === 'GSEControl' ? 'maxGo' : 'maxSv';
   const maxValues = parseInt(
     subscriberIED
       .querySelector('Services>SupSubscription')
@@ -387,7 +388,7 @@ function isSupervisionAllowed(
   )
     return false;
   if (
-    maxSupervisions(subscriberIED, controlBlock) <=
+    maxSupervisions(subscriberIED, controlBlock.tagName) <=
     instantiatedSupervisionsCount(subscriberIED, controlBlock)
   )
     return false;

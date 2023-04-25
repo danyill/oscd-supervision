@@ -1,37 +1,52 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+<xliff version="1.2"
+  xmlns="urn:oasis:names:tc:xliff:document:1.2">
   <file target-language="de" source-language="en" original="lit-localize-inputs" datatype="plaintext">
     <body>
-<trans-unit id="sfd06289994ba44d2">
-  <source>Delete supervision logical node</source>
-</trans-unit>
-<trans-unit id="sfcf8c16f9576d89d">
-  <source>Remove supervision of this control block</source>
-</trans-unit>
-<trans-unit id="s76337e9689649c0b">
-  <source>This IED subscribes to this control block</source>
-</trans-unit>
-<trans-unit id="sf5bd9968dcf60b09">
-  <source>Change between GOOSE and Sampled Value publishers</source>
-</trans-unit>
-<trans-unit id="s6c69c398a9073c91">
-  <source>GOOSE Control Blocks</source>
-</trans-unit>
-<trans-unit id="se9982364c9695915">
-  <source>SV Control Blocks</source>
-</trans-unit>
-<trans-unit id="s7b2d9b115f70f47b">
-  <source>This IED does not support supervision modification</source>
-</trans-unit>
-<trans-unit id="s05cf7229ae897450">
-  <source>Unsupervised GOOSE Control Blocks</source>
-</trans-unit>
-<trans-unit id="s1b14381f166b8d62">
-  <source>Unsupervised SV Control Blocks</source>
-</trans-unit>
-<trans-unit id="s60c499a67d76413e">
-  <source>Unused Supervision Logical Nodes</source>
-</trans-unit>
+      <trans-unit id="sfd06289994ba44d2">
+        <source>Delete supervision logical node</source>
+        <target>Lösche Überwachungs-Logik-Knoten</target>
+      </trans-unit>
+      <trans-unit id="sfcf8c16f9576d89d">
+        <source>Remove supervision of this control block</source>
+        <target>Überwachung dieses Steuerblocks entfernen</target>
+      </trans-unit>
+      <trans-unit id="sf5bd9968dcf60b09">
+        <source>Change between GOOSE and Sampled Value publishers</source>
+        <target>Zwischen GOOSE- und Sampled-Value-Publishern wechseln</target>
+      </trans-unit>
+      <trans-unit id="s6c69c398a9073c91">
+        <source>GOOSE Control Blocks</source>
+        <target>GOOSE-Steuerblöcke</target>
+      </trans-unit>
+      <trans-unit id="se9982364c9695915">
+        <source>SV Control Blocks</source>
+        <target>SV-Steuerblöcke</target>
+      </trans-unit>
+      <trans-unit id="s49c26e1d7235015c">
+        <source>This IED does not support supervision modification. Only viewing supervisions is supported.</source>
+        <target>Diese IED unterstützt keine Überwachungsänderungen. Es wird nur die Anzeige von Überwachungen unterstützt.</target>
+      </trans-unit>
+      <trans-unit id="sff2d6df22502e8d3">
+        <source>Subscribed GOOSE Control Blocks</source>
+        <target>Abonnierte GOOSE-Steuerblöcke</target>
+      </trans-unit>
+      <trans-unit id="se12126222bc4d9b3">
+        <source>Subscribed SV Control Blocks</source>
+        <target>Abonnierte SV-Steuerblöcke</target>
+      </trans-unit>
+      <trans-unit id="s18ddd6b4fc394661">
+        <source>Available Supervision Logical Nodes</source>
+        <target>Verfügbare Überwachungs-Logik-Knoten</target>
+      </trans-unit>
+      <trans-unit id="s860007539c72e12d">
+        <source>instantiated</source>
+        <target>instantiiert</target>
+      </trans-unit>
+      <trans-unit id="s7d678ae4032b59f0">
+        <source>used</source>
+        <target>benutzt</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>
