@@ -1,0 +1,63 @@
+import { LitElement, PropertyValues, TemplateResult } from 'lit';
+import '@material/mwc-button';
+import '@material/mwc-formfield';
+import '@material/mwc-textfield';
+import '@material/mwc-list';
+import '@material/mwc-list/mwc-list-item';
+import '@material/mwc-list/mwc-radio-list-item';
+import '@material/mwc-icon-button-toggle';
+import '@material/mwc-icon';
+import '@material/mwc-icon-button';
+import type { ListItem } from '@material/mwc-list/mwc-list-item';
+import type { List } from '@material/mwc-list';
+import './foundation/components/oscd-filter-button.js';
+import './foundation/components/oscd-filtered-list.js';
+/**
+ * Editor for GOOSE and SMV supervision LNs
+ */
+export default class Supervision extends LitElement {
+    doc: XMLDocument;
+    docName: string;
+    editCount: number;
+    controlType: 'GOOSE' | 'SMV';
+    private get iedList();
+    selectedIEDs: string[];
+    allControlBlockIds: Array<string>;
+    connectedControlBlockIds: Array<string>;
+    supervisedControlBlockIds: Array<string>;
+    private get selectedIed();
+    selectedControl: Element | null;
+    selectedSupervision: Element | null;
+    newSupervision: boolean;
+    selectedUnusedControlsListUI: List;
+    selectedUnusedSupervisionsListUI: List;
+    selectedUnusedControlUI?: ListItem;
+    selectedUnusedSupervisionUI?: ListItem;
+    protected updateConnectedControlBlocks(): void;
+    protected updateSupervisedControlBlocks(): void;
+    protected updateAllControlBlocks(): void;
+    protected updateControlBlockInfo(): void;
+    protected firstUpdated(): void;
+    protected updated(_changedProperties: PropertyValues): void;
+    renderUnusedSupervisionNode(lN: Element): TemplateResult;
+    renderSupervisionNode(lN: Element, interactive: boolean): TemplateResult;
+    private getSupervisionLNs;
+    private getControlElements;
+    clearListSelections(): void;
+    private getSupLNsWithCBs;
+    protected renderUnusedSupervisionLNs(used?: boolean, unused?: boolean): TemplateResult;
+    private renderDeleteIcons;
+    private renderUsedSupervisionLNs;
+    private renderUsedSupervisionRemovalIcons;
+    private renderControl;
+    private renderUnusedControls;
+    private renderUsedControls;
+    private renderControlSelector;
+    private renderInfo;
+    private renderIedSelector;
+    private createSupervision;
+    private renderUnusedControlList;
+    private renderUnusedSupervisionList;
+    protected render(): TemplateResult;
+    static styles: import("lit").CSSResult;
+}
