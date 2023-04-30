@@ -47,6 +47,10 @@
         <source>used</source>
         <target>benutzt</target>
       </trans-unit>
+      <trans-unit id="s69bb8d6e3f4442dc">
+        <source>New Supervision LN</source>
+        <target>Neue Überwachung</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

@@ -11,6 +11,7 @@
   href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined"
   rel="stylesheet"
 />
+<!-- tag::plugins[] -->
 <open-scd
   plugins='{
   "menu": 
@@ -20,10 +21,11 @@
   ],
   "editor": 
   [
-    {"name": "Supervision", "icon": "ecg", "active": true, "src": "/dist/oscd-supervision.js"}
+    {"name": "Supervision", "translations": {"de": "Überwachung", "pt":"Supervisão"},  "icon": "ecg", "active": true, "src": "/dist/oscd-supervision.js"}
   ]
 }'
 ></open-scd>
+<!-- end::plugins[] -->
 
 <script type="module">
   import '@openscd/open-scd-core/open-scd.js';
