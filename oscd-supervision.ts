@@ -287,7 +287,7 @@ export default class Supervision extends LitElement {
       controlBlockRef !== null;
     return html`
       <mwc-list-item
-        twoline
+        ?twoline=${description || invalidControlBlock}
         class="mitem"
         graphic="icon"
         ?hasMeta=${invalidControlBlock}
@@ -306,7 +306,9 @@ export default class Supervision extends LitElement {
           : nothing}
         <mwc-icon slot="graphic">monitor_heart</mwc-icon>
         ${invalidControlBlock
-          ? html`<mwc-icon slot="meta">warning</mwc-icon>`
+          ? html`<mwc-icon class="invalid-mapping" slot="meta"
+              >warning</mwc-icon
+            >`
           : ''}
       </mwc-list-item>
       <!-- TODO: Tidy up invalid control block reference code -->
@@ -324,7 +326,6 @@ export default class Supervision extends LitElement {
   // </DAI>
   // </DOI>
 
-  // TODO: Ask Jakob about valImport = true and only supporting Ed 2.1?
   // eslint-disable-next-line class-methods-use-this
   renderSupervisionNode(lN: Element, interactive: boolean): TemplateResult {
     const description = getDescriptionAttribute(lN);
@@ -417,7 +418,7 @@ export default class Supervision extends LitElement {
         value="New Supervision LN"
       >
         <span>${msg('New Supervision LN')}</span>
-        <mwc-icon slot="graphic">library_add</mwc-icon>
+        <mwc-icon slot="graphic">heart_plus</mwc-icon>
       </mwc-list-item>`;
   }
 
@@ -425,6 +426,7 @@ export default class Supervision extends LitElement {
     used: boolean = true,
     unused: boolean = false
   ): TemplateResult {
+    const firstSupervision = this.getSupervisionLNs(this.controlType)[0];
     return html`<mwc-list class="column mlist deleter">
       <!-- show additional item to allow delete button alignment -->
       ${unused
@@ -441,10 +443,14 @@ export default class Supervision extends LitElement {
             graphic="icon"
             data-ln="${identity(lN)}"
             value="${identity(lN)}"
+            title="${lN === firstSupervision
+              ? `${msg('First supervision logical node cannot be removed')}`
+              : ''}"
           >
             <mwc-icon
-              class="column button mitem"
-              icon="delete"
+              class="column button mitem ${lN !== firstSupervision
+                ? 'deletable'
+                : ''}"
               slot="graphic"
               label="${msg('Delete supervision logical node')}"
               data-lN="${identity(lN)}"
@@ -453,7 +459,8 @@ export default class Supervision extends LitElement {
                   isSupervisionModificationAllowed(
                     this.selectedIed!,
                     supervisionLnType[this.controlType]
-                  )
+                  ) &&
+                  lN !== firstSupervision
                 ) {
                   const removeEdit: Remove = {
                     node: lN,
@@ -462,7 +469,7 @@ export default class Supervision extends LitElement {
                   this.updateSupervisedControlBlocks();
                 }
               }}
-              >delete</mwc-icon
+              >${lN === firstSupervision ? 'info' : 'delete'}</mwc-icon
             >
           </mwc-list-item>
         `
@@ -528,8 +535,8 @@ export default class Supervision extends LitElement {
             <mwc-icon
               slot="graphic"
               label="${msg('Remove supervision of this control block')}"
-              class="column button mitem"
-              >conversion_path</mwc-icon
+              class="column button mitem deletable"
+              >heart_minus</mwc-icon
             >
           </mwc-list-item>
         `
@@ -860,7 +867,7 @@ export default class Supervision extends LitElement {
                 <mwc-icon-button
                   id="createNewLN"
                   title="${msg('New Supervision LN')}"
-                  icon="library_add"
+                  icon="heart_plus"
                   @click=${() => {
                     console.log('Add new supervision');
                   }}
@@ -970,13 +977,11 @@ export default class Supervision extends LitElement {
 
     .mitem.button {
       justify-content: space-around;
-      /* TODO: Discuss with Christian - actually need a theme in OpenSCD core! */
-      --mdc-theme-text-disabled-on-light: LightGray;
     }
 
-    .mitem.button:hover {
-      /* TODO: Convert to OpenSCD theme! */
-      color: red;
+    .deletable:hover {
+      /* TODO: Better naming */
+      color: var(--mdc-theme-error, red);
     }
 
     .usage-group {
@@ -1014,6 +1019,11 @@ export default class Supervision extends LitElement {
 
     #unusedSupervisions {
       width: 100%;
+    }
+
+    /* TODO: Better naming */
+    .invalid-mapping {
+      color: var(--mdc-theme-error, red);
     }
   `;
 }
