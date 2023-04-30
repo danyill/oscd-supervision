@@ -11,10 +11,11 @@
 :uri-openscd: https://github.com/openscd
 :uri-openscd-app: https://openscd.github.io
 :uri-openscd-core-app: https://openscd.github.io/open-scd/
-:uri-openscd-core-plugin: pass:v[https://openscd.github.io/open-scd/?plugins=%7B%22menu%22:%5B%7B%22name%22:%22Open%20File%22,%22translations%22:%7B%22de%22:%22Datei%20%C3%B6ffnen%22%7D,%22icon%22:%22folder_open%22,%22active%22:true,%22src%22:%22https://openscd.github.io/oscd-open/oscd-open.js%22%7D,%7B%22name%22:%22Save%20File%22,%22translations%22:%7B%22de%22:%22Datei%20speichern%22%7D,%22icon%22:%22save%22,%22active%22:true,%22src%22:%22https://openscd.github.io/oscd-save/oscd-save.js%22%7D%5D,%22editor%22:%5B%7B%22name%22:%Supervision%22,%22translations%22:%7B%22de%22:%22Sp%C3%A4te%20Bindung%20des%20Abonnenten%22,%22pt%22:%22Associa%C3%A7%C3%A3o%20Tardia%20de%20Assinante%22%7D,%22icon%22:%22ecg%22,%22active%22:true,%22requireDoc%22:false,%22src%22:%22https://danyill.github.io/oscd-supervision/oscd-supervision.js%22%7D%5D%7D]
+:uri-openscd-core-plugin: pass:v[https://openscd.github.io/open-scd/?plugins=%7B%22menu%22:%5B%7B%22name%22:%22Open%20File%22,%22translations%22:%7B%22de%22:%22Datei%20%C3%B6ffnen%22%7D,%22icon%22:%22folder_open%22,%22active%22:true,%22src%22:%22https://openscd.github.io/oscd-open/oscd-open.js%22%7D,%7B%22name%22:%22Save%20File%22,%22translations%22:%7B%22de%22:%22Datei%20speichern%22%7D,%22icon%22:%22save%22,%22active%22:true,%22src%22:%22https://openscd.github.io/oscd-save/oscd-save.js%22%7D%5D,%22editor%22:%5B%7B%22name%22:%22Supervision%22,%22translations%22:%7B%22de%22:%22%C3%9Cberwachung%22,%22pt%22:%22Supervis%C3%A3o%22%7D,%22icon%22:%22ecg%22,%22active%22:true,%22src%22:%22https://danyill.github.io/oscd-supervision/oscd-supervision.js%22%7D%5D%7D]
 // TIP:
-// the above URI is done by taking the plugins object from demo.html and updating to the correct {uri-ci-bundle} value and then in the browser calling:
+// the above URI is done by taking the plugins object from demo.html (without strings) and updating to the correct {uri-ci-bundle} value and then in the browser calling:
 // console.log(`https://openscd.github.io/open-scd/?plugins=${encodeURI(JSON.stringify(plugins))}`)
+// then substitute the value within the pass:v[<url>]
 :uri-openwc: https://github.com/open-wc/open-wc
 :uri-plugin: https://github.com/danyill/oscd-supervision
 :uri-ci-bundle: https://danyill.github.io/oscd-supervision/oscd-supervision.js
