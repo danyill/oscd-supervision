@@ -3,7 +3,8 @@
 
 import { visualDiff } from '@web/test-runner-visual-regression';
 
-import { setViewport, sendMouse, resetMouse } from '@web/test-runner-commands';
+import { setViewport, resetMouse } from '@web/test-runner-commands';
+// sendMouse,
 
 import { fixture, html } from '@open-wc/testing';
 
@@ -11,7 +12,7 @@ import '@openscd/open-scd-core/open-scd.js';
 
 // import { test, expect } from '@playwright/test';
 
-import { getExtRefItem, getFcdaItem, midEl } from './test-support.js';
+// import { getExtRefItem, getFcdaItem, midEl } from './test-support.js';
 
 const factor = window.process && process.env.CI ? 4 : 2;
 
