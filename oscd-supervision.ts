@@ -28,6 +28,7 @@ import type { ListItemBase } from '@material/mwc-list/mwc-list-item-base.js';
 import './foundation/components/oscd-filter-button.js';
 import './foundation/components/oscd-filtered-list.js';
 
+// import { canInstantiateSubscriptionSupervision } from '@openenergytools/scl-lib';
 import {
   compareNames,
   findControlBlocks,
@@ -58,8 +59,56 @@ import type { SelectedItemsChangedEvent } from './foundation/components/oscd-fil
 const controlTag = { GOOSE: 'GSEControl', SMV: 'SampledValueControl' };
 const supervisionLnType = { GOOSE: 'LGOS', SMV: 'LSVS' };
 
-function removeIedPart(identityString: string | number): string {
-  return `${identityString}`.split('>').slice(1).join('>').trim().slice(1);
+// <GSEControl name="Ind" datSet="Ind" confRev="1" type="GOOSE" appID="0001">
+// <Private type="NR_Port">1-A</Private>
+// </GSEControl>
+
+function controlBlockDescription(control: Element): {
+  pathName: string;
+  pathLDeviceAndLN: string;
+  pathDescription: string;
+} {
+  const name = control.getAttribute('name');
+
+  const iedName = control.closest('IED')!.getAttribute('name');
+  const lN0 = control.closest('LN0');
+  const lDevice = lN0!.closest('LDevice')!;
+
+  const ldInst = lDevice.getAttribute('inst');
+  const lnPrefix = lN0!.getAttribute('prefix');
+  const lnClass = lN0!.getAttribute('lnClass');
+  const lnInst = lN0!.getAttribute('inst');
+
+  const desc = control.getAttribute('desc');
+  const lN0Desc = lN0?.getAttribute(' ');
+
+  const descriptions = [desc, lN0Desc].filter(a => !!a).join(' > ');
+
+  const pathName = [iedName, '>', name].filter(a => !!a).join(' ');
+
+  const pathLDeviceAndLN = [ldInst, '/', lnPrefix, lnClass, lnInst]
+    .filter(a => !!a)
+    .join(' ');
+
+  const pathDescription = descriptions;
+
+  return { pathName, pathLDeviceAndLN, pathDescription };
+}
+
+function supervisionPath(supLn: Element): string {
+  const ln = supLn.closest('LN, LN0');
+  const lDevice = ln!.closest('LDevice')!;
+
+  const ldInst = lDevice.getAttribute('inst');
+  const lnPrefix = ln!.getAttribute('prefix');
+  const lnClass = ln!.getAttribute('lnClass');
+  const lnInst = ln!.getAttribute('inst');
+
+  const path = [ldInst, '/', lnPrefix, lnClass, lnInst]
+    .filter(a => !!a)
+    .join(' ');
+
+  return path;
 }
 
 function getSupervisionControlBlockRef(ln: Element): string | null {
@@ -150,6 +199,7 @@ export default class Supervision extends LitElement {
     return undefined;
   }
 
+  @state()
   selectedControl: Element | null = null;
 
   selectedSupervision: Element | null = null;
@@ -287,14 +337,14 @@ export default class Supervision extends LitElement {
       controlBlockRef !== null;
     return html`
       <mwc-list-item
-        ?twoline=${description || invalidControlBlock}
+        ?twoline=${!!description || !!invalidControlBlock}
         class="mitem"
         graphic="icon"
         ?hasMeta=${invalidControlBlock}
         data-supervision="${identity(lN)}"
         value="${identity(lN)}"
       >
-        <span>${removeIedPart(identity(lN))}</span>
+        <span>${supervisionPath(lN)}</span>
         ${description || invalidControlBlock
           ? html`<span slot="secondary"
               >${description}${description && invalidControlBlock
@@ -331,13 +381,14 @@ export default class Supervision extends LitElement {
     const description = getDescriptionAttribute(lN);
     return html`
       <mwc-list-item
+        ?twoline=${!!description}
         ?noninteractive=${!interactive}
         class="sup-ln mitem"
         graphic="icon"
         data-ln="${identity(lN)}"
         value="${identity(lN)}"
       >
-        <span>${removeIedPart(identity(lN))}</span>
+        <span>${supervisionPath(lN)}</span>
         ${description
           ? html`<span slot="secondary">${description}</span>`
           : nothing}
@@ -534,7 +585,7 @@ export default class Supervision extends LitElement {
           >
             <mwc-icon
               slot="graphic"
-              label="${msg('Remove supervision of this control block')}"
+              title="${msg('Remove supervision of this control block')}"
               class="column button mitem deletable"
               >heart_minus</mwc-icon
             >
@@ -545,24 +596,39 @@ export default class Supervision extends LitElement {
   }
 
   private renderControl(
-    controlElement: Element | null,
+    controlElement: Element,
     unused: boolean = false
   ): TemplateResult {
     if (!controlElement) return html``;
 
+    const { pathName, pathLDeviceAndLN, pathDescription } =
+      controlBlockDescription(controlElement);
+    const datasetName = controlElement.getAttribute('datSet');
+
+    const controlId =
+      controlElement.tagName === 'GSEControl'
+        ? controlElement.getAttribute('appID')
+        : controlElement.getAttribute('smvID');
+
+    let secondLineDesc = pathLDeviceAndLN;
+
+    if (pathDescription && !datasetName) {
+      secondLineDesc += ` - ${pathDescription} (Id: ${controlId})}`;
+    } else if (pathDescription && datasetName) {
+      secondLineDesc += ` - ${pathDescription} (Dataset: ${datasetName}, Id: ${controlId})`;
+    } else if (!pathDescription && datasetName) {
+      secondLineDesc += ` - Dataset: ${datasetName}, Id: ${controlId})`;
+    }
+
     return html`<mwc-list-item
       ?noninteractive=${!unused}
       graphic="icon"
-      twoline
+      ?twoline=${!!pathDescription || !!datasetName}
       data-control="${identity(controlElement)}"
-      value="${identity(controlElement)}"
+      value="${pathName}"
     >
-      <span>${identity(controlElement)}</span>
-      <span slot="secondary"
-        >${controlElement?.getAttribute('datSet') ?? 'No dataset'}
-        ${getDescriptionAttribute(controlElement) ??
-        getDescriptionAttribute(controlElement)}
-      </span>
+      <span>${pathName}</span>
+      <span slot="secondary">${secondLineDesc} </span>
       <mwc-icon slot="graphic"
         >${this.controlType === 'GOOSE' ? gooseIcon : smvIcon}</mwc-icon
       >
@@ -598,7 +664,9 @@ export default class Supervision extends LitElement {
             control => cbRef === controlBlockReference(control)
           ) ?? null;
 
-        return html`${this.renderControl(controlElement)}`;
+        return html`${controlElement
+          ? this.renderControl(controlElement)
+          : nothing}`;
       })}</mwc-list
     >`;
   }
@@ -678,6 +746,8 @@ export default class Supervision extends LitElement {
         header="IED Selector"
         @selected-items-changed="${(e: SelectedItemsChangedEvent) => {
           this.selectedIEDs = e.detail.selectedItems;
+          // reset control selection
+          this.selectedControl = null;
           this.requestUpdate('selectedIed');
         }}"
       >
@@ -824,6 +894,46 @@ export default class Supervision extends LitElement {
     </oscd-filtered-list>`;
   }
 
+  renderUnusedControlBlocksAndSupervisions(): TemplateResult {
+    const controlName = this.selectedControl?.getAttribute('name');
+    const iedName = this.selectedControl?.closest('IED')!.getAttribute('name');
+
+    return html`<section class="unused">
+      <div class="column-unused">
+        ${this.selectedControl
+          ? html`<h2 class="selected title-element text">
+              ${iedName} > ${controlName}
+            </h2>`
+          : html`<h2>
+              ${this.controlType === 'GOOSE'
+                ? msg(`Select GOOSE Control Block`)
+                : msg(`Select SV Control Block`)}
+            </h2>`}
+        ${this.renderUnusedControlList()}
+      </div>
+      <hr />
+      <div class="column-unused">
+        <h2 class="${this.selectedControl ? 'selected' : ''}">
+          ${this.selectedControl
+            ? msg('Select Supervision Logical Node')
+            : msg('Available Supervision Logical Nodes')}
+          <mwc-icon-button
+            id="createNewLN"
+            title="${msg('New Supervision LN')}"
+            icon="heart_plus"
+            @click=${() => {
+              console.log('Add new supervision');
+            }}
+          ></mwc-icon-button>
+        </h2>
+        <div class="available-grouper">
+          ${this.renderUnusedSupervisionList()}
+          ${this.renderDeleteIcons(false, true)}
+        </div>
+      </div>
+    </section>`;
+  }
+
   protected render(): TemplateResult {
     if (!this.doc) return html``;
 
@@ -851,34 +961,7 @@ export default class Supervision extends LitElement {
         this.selectedIed,
         supervisionLnType[this.controlType]
       )
-        ? html`<section class="unused">
-            <div class="column-unused">
-              <h2>
-                ${this.controlType === 'GOOSE'
-                  ? msg(`Subscribed GOOSE Control Blocks`)
-                  : msg(`Subscribed SV Control Blocks`)}
-              </h2>
-              ${this.renderUnusedControlList()}
-            </div>
-            <hr />
-            <div class="column-unused">
-              <h2>
-                ${msg('Available Supervision Logical Nodes')}
-                <mwc-icon-button
-                  id="createNewLN"
-                  title="${msg('New Supervision LN')}"
-                  icon="heart_plus"
-                  @click=${() => {
-                    console.log('Add new supervision');
-                  }}
-                ></mwc-icon-button>
-              </h2>
-              <div class="available-grouper">
-                ${this.renderUnusedSupervisionList()}
-                ${this.renderDeleteIcons(false, true)}
-              </div>
-            </div>
-          </section>`
+        ? html`${this.renderUnusedControlBlocksAndSupervisions()}`
         : nothing
     }`;
   }
@@ -905,6 +988,11 @@ export default class Supervision extends LitElement {
       line-height: 48px;
       padding-left: 0.3em;
       transition: background-color 150ms linear;
+    }
+
+    h2.selected {
+      font-weight: 400;
+      color: var(--mdc-theme-primary, #6200ee);
     }
 
     #cbTitle,
@@ -955,9 +1043,19 @@ export default class Supervision extends LitElement {
       --mdc-icon-size: 32px;
     }
 
+    #iedFilter {
+      color: var(--mdc-theme-secondary, #018786);
+    }
+
+    #controlType > svg {
+      border-radius: 24px;
+      background-color: var(--mdc-theme-secondary, #018786);
+      color: var(--mdc-theme-on-secondary, white);
+    }
+
     .button {
       --mdc-icon-size: 32px;
-      /* center icon */
+      color: var(--mdc-theme-secondary, #018786);
       padding-right: 5px;
     }
 
@@ -980,7 +1078,6 @@ export default class Supervision extends LitElement {
     }
 
     .deletable:hover {
-      /* TODO: Better naming */
       color: var(--mdc-theme-error, red);
     }
 
@@ -992,6 +1089,10 @@ export default class Supervision extends LitElement {
 
     .side-icons {
       display: flex;
+    }
+
+    mwc-list-item[noninteractive] {
+      font-weight: 400;
     }
 
     .column {
@@ -1021,7 +1122,6 @@ export default class Supervision extends LitElement {
       width: 100%;
     }
 
-    /* TODO: Better naming */
     .invalid-mapping {
       color: var(--mdc-theme-error, red);
     }

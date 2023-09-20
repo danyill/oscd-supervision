@@ -50,6 +50,9 @@
         <source>New Supervision LN</source>
         <target>Neue Überwachung</target>
       </trans-unit>
+<trans-unit id="saf3b628bc8515d77">
+  <source>First supervision logical node cannot be removed</source>
+</trans-unit>
     </body>
   </file>
 </xliff>
