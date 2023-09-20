@@ -11582,8 +11582,39 @@ const styles = i$5 `
 
 const controlTag = { GOOSE: 'GSEControl', SMV: 'SampledValueControl' };
 const supervisionLnType = { GOOSE: 'LGOS', SMV: 'LSVS' };
-function removeIedPart(identityString) {
-    return `${identityString}`.split('>').slice(1).join('>').trim().slice(1);
+// <GSEControl name="Ind" datSet="Ind" confRev="1" type="GOOSE" appID="0001">
+// <Private type="NR_Port">1-A</Private>
+// </GSEControl>
+function controlBlockDescription(control) {
+    const name = control.getAttribute('name');
+    const iedName = control.closest('IED').getAttribute('name');
+    const lN0 = control.closest('LN0');
+    const lDevice = lN0.closest('LDevice');
+    const ldInst = lDevice.getAttribute('inst');
+    const lnPrefix = lN0.getAttribute('prefix');
+    const lnClass = lN0.getAttribute('lnClass');
+    const lnInst = lN0.getAttribute('inst');
+    const desc = control.getAttribute('desc');
+    const lN0Desc = lN0?.getAttribute(' ');
+    const descriptions = [desc, lN0Desc].filter(a => !!a).join(' > ');
+    const pathName = [iedName, '>', name].filter(a => !!a).join(' ');
+    const pathLDeviceAndLN = [ldInst, '/', lnPrefix, lnClass, lnInst]
+        .filter(a => !!a)
+        .join(' ');
+    const pathDescription = descriptions;
+    return { pathName, pathLDeviceAndLN, pathDescription };
+}
+function supervisionPath(supLn) {
+    const ln = supLn.closest('LN, LN0');
+    const lDevice = ln.closest('LDevice');
+    const ldInst = lDevice.getAttribute('inst');
+    const lnPrefix = ln.getAttribute('prefix');
+    const lnClass = ln.getAttribute('lnClass');
+    const lnInst = ln.getAttribute('inst');
+    const path = [ldInst, '/', lnPrefix, lnClass, lnInst]
+        .filter(a => !!a)
+        .join(' ');
+    return path;
 }
 function getSupervisionControlBlockRef(ln) {
     const type = ln.getAttribute('lnClass') === 'LGOS' ? 'GoCBRef' : 'SvCBRef';
@@ -11724,14 +11755,14 @@ class Supervision extends s$1 {
             controlBlockRef !== null;
         return x `
       <mwc-list-item
-        ?twoline=${description || invalidControlBlock}
+        ?twoline=${!!description || !!invalidControlBlock}
         class="mitem"
         graphic="icon"
         ?hasMeta=${invalidControlBlock}
         data-supervision="${identity(lN)}"
         value="${identity(lN)}"
       >
-        <span>${removeIedPart(identity(lN))}</span>
+        <span>${supervisionPath(lN)}</span>
         ${description || invalidControlBlock
             ? x `<span slot="secondary"
               >${description}${description && invalidControlBlock
@@ -11766,13 +11797,14 @@ class Supervision extends s$1 {
         const description = getDescriptionAttribute(lN);
         return x `
       <mwc-list-item
+        ?twoline=${!!description}
         ?noninteractive=${!interactive}
         class="sup-ln mitem"
         graphic="icon"
         data-ln="${identity(lN)}"
         value="${identity(lN)}"
       >
-        <span>${removeIedPart(identity(lN))}</span>
+        <span>${supervisionPath(lN)}</span>
         ${description
             ? x `<span slot="secondary">${description}</span>`
             : A}
@@ -11915,7 +11947,7 @@ class Supervision extends s$1 {
           >
             <mwc-icon
               slot="graphic"
-              label="${msg('Remove supervision of this control block')}"
+              title="${msg('Remove supervision of this control block')}"
               class="column button mitem deletable"
               >heart_minus</mwc-icon
             >
@@ -11926,19 +11958,30 @@ class Supervision extends s$1 {
     renderControl(controlElement, unused = false) {
         if (!controlElement)
             return x ``;
+        const { pathName, pathLDeviceAndLN, pathDescription } = controlBlockDescription(controlElement);
+        const datasetName = controlElement.getAttribute('datSet');
+        const controlId = controlElement.tagName === 'GSEControl'
+            ? controlElement.getAttribute('appID')
+            : controlElement.getAttribute('smvID');
+        let secondLineDesc = pathLDeviceAndLN;
+        if (pathDescription && !datasetName) {
+            secondLineDesc += ` - ${pathDescription} (Id: ${controlId})}`;
+        }
+        else if (pathDescription && datasetName) {
+            secondLineDesc += ` - ${pathDescription} (Dataset: ${datasetName}, Id: ${controlId})`;
+        }
+        else if (!pathDescription && datasetName) {
+            secondLineDesc += ` - Dataset: ${datasetName}, Id: ${controlId})`;
+        }
         return x `<mwc-list-item
       ?noninteractive=${!unused}
       graphic="icon"
-      twoline
+      ?twoline=${!!pathDescription || !!datasetName}
       data-control="${identity(controlElement)}"
-      value="${identity(controlElement)}"
+      value="${pathName}"
     >
-      <span>${identity(controlElement)}</span>
-      <span slot="secondary"
-        >${controlElement?.getAttribute('datSet') ?? 'No dataset'}
-        ${getDescriptionAttribute(controlElement) ??
-            getDescriptionAttribute(controlElement)}
-      </span>
+      <span>${pathName}</span>
+      <span slot="secondary">${secondLineDesc} </span>
       <mwc-icon slot="graphic"
         >${this.controlType === 'GOOSE' ? gooseIcon : smvIcon}</mwc-icon
       >
@@ -11959,7 +12002,9 @@ class Supervision extends s$1 {
       ${this.getSupLNsWithCBs(true, false).map(lN => {
             const cbRef = getSupervisionControlBlockRef(lN);
             const controlElement = this.getControlElements(this.controlType).find(control => cbRef === controlBlockReference(control)) ?? null;
-            return x `${this.renderControl(controlElement)}`;
+            return x `${controlElement
+                ? this.renderControl(controlElement)
+                : A}`;
         })}</mwc-list
     >`;
     }
@@ -12026,6 +12071,8 @@ class Supervision extends s$1 {
         header="IED Selector"
         @selected-items-changed="${(e) => {
             this.selectedIEDs = e.detail.selectedItems;
+            // reset control selection
+            this.selectedControl = null;
             this.requestUpdate('selectedIed');
         }}"
       >
@@ -12124,6 +12171,44 @@ class Supervision extends s$1 {
       ${this.renderUnusedSupervisionLNs(false, true)}
     </oscd-filtered-list>`;
     }
+    renderUnusedControlBlocksAndSupervisions() {
+        const controlName = this.selectedControl?.getAttribute('name');
+        const iedName = this.selectedControl?.closest('IED').getAttribute('name');
+        return x `<section class="unused">
+      <div class="column-unused">
+        ${this.selectedControl
+            ? x `<h2 class="selected title-element text">
+              ${iedName} > ${controlName}
+            </h2>`
+            : x `<h2>
+              ${this.controlType === 'GOOSE'
+                ? msg(`Select GOOSE Control Block`)
+                : msg(`Select SV Control Block`)}
+            </h2>`}
+        ${this.renderUnusedControlList()}
+      </div>
+      <hr />
+      <div class="column-unused">
+        <h2 class="${this.selectedControl ? 'selected' : ''}">
+          ${this.selectedControl
+            ? msg('Select Supervision Logical Node')
+            : msg('Available Supervision Logical Nodes')}
+          <mwc-icon-button
+            id="createNewLN"
+            title="${msg('New Supervision LN')}"
+            icon="heart_plus"
+            @click=${() => {
+            console.log('Add new supervision');
+        }}
+          ></mwc-icon-button>
+        </h2>
+        <div class="available-grouper">
+          ${this.renderUnusedSupervisionList()}
+          ${this.renderDeleteIcons(false, true)}
+        </div>
+      </div>
+    </section>`;
+    }
     render() {
         if (!this.doc)
             return x ``;
@@ -12147,34 +12232,7 @@ class Supervision extends s$1 {
     </section>
     ${this.selectedIed &&
             isSupervisionModificationAllowed(this.selectedIed, supervisionLnType[this.controlType])
-            ? x `<section class="unused">
-            <div class="column-unused">
-              <h2>
-                ${this.controlType === 'GOOSE'
-                ? msg(`Subscribed GOOSE Control Blocks`)
-                : msg(`Subscribed SV Control Blocks`)}
-              </h2>
-              ${this.renderUnusedControlList()}
-            </div>
-            <hr />
-            <div class="column-unused">
-              <h2>
-                ${msg('Available Supervision Logical Nodes')}
-                <mwc-icon-button
-                  id="createNewLN"
-                  title="${msg('New Supervision LN')}"
-                  icon="heart_plus"
-                  @click=${() => {
-                console.log('Add new supervision');
-            }}
-                ></mwc-icon-button>
-              </h2>
-              <div class="available-grouper">
-                ${this.renderUnusedSupervisionList()}
-                ${this.renderDeleteIcons(false, true)}
-              </div>
-            </div>
-          </section>`
+            ? x `${this.renderUnusedControlBlocksAndSupervisions()}`
             : A}`;
     }
 }
@@ -12200,6 +12258,11 @@ Supervision.styles = i$5 `
       line-height: 48px;
       padding-left: 0.3em;
       transition: background-color 150ms linear;
+    }
+
+    h2.selected {
+      font-weight: 400;
+      color: var(--mdc-theme-primary, #6200ee);
     }
 
     #cbTitle,
@@ -12250,9 +12313,19 @@ Supervision.styles = i$5 `
       --mdc-icon-size: 32px;
     }
 
+    #iedFilter {
+      color: var(--mdc-theme-secondary, #018786);
+    }
+
+    #controlType > svg {
+      border-radius: 24px;
+      background-color: var(--mdc-theme-secondary, #018786);
+      color: var(--mdc-theme-on-secondary, white);
+    }
+
     .button {
       --mdc-icon-size: 32px;
-      /* center icon */
+      color: var(--mdc-theme-secondary, #018786);
       padding-right: 5px;
     }
 
@@ -12275,7 +12348,6 @@ Supervision.styles = i$5 `
     }
 
     .deletable:hover {
-      /* TODO: Better naming */
       color: var(--mdc-theme-error, red);
     }
 
@@ -12287,6 +12359,10 @@ Supervision.styles = i$5 `
 
     .side-icons {
       display: flex;
+    }
+
+    mwc-list-item[noninteractive] {
+      font-weight: 400;
     }
 
     .column {
@@ -12316,7 +12392,6 @@ Supervision.styles = i$5 `
       width: 100%;
     }
 
-    /* TODO: Better naming */
     .invalid-mapping {
       color: var(--mdc-theme-error, red);
     }
@@ -12351,6 +12426,9 @@ __decorate([
 __decorate([
     t$1()
 ], Supervision.prototype, "selectedIed", null);
+__decorate([
+    t$1()
+], Supervision.prototype, "selectedControl", void 0);
 __decorate([
     i$2('#unusedControls')
 ], Supervision.prototype, "selectedUnusedControlsListUI", void 0);

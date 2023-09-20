@@ -58,6 +58,7 @@ export default class Supervision extends LitElement {
     private createSupervision;
     private renderUnusedControlList;
     private renderUnusedSupervisionList;
+    renderUnusedControlBlocksAndSupervisions(): TemplateResult;
     protected render(): TemplateResult;
     static styles: import("lit").CSSResult;
 }
