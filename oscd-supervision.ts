@@ -47,6 +47,7 @@ import { styles } from './foundation/styles/styles.js';
 
 import {
   controlBlockReference,
+  createNewSupervisionLnInst,
   instantiateSubscriptionSupervision,
   isSupervisionModificationAllowed,
   maxSupervisions,
@@ -782,23 +783,65 @@ export default class Supervision extends LitElement {
     selectedControl: Element,
     selectedSupervision: Element | null,
     newSupervision: boolean
-  ) {
-    let edits: Edit[];
+  ): void {
+    let edits: Edit[] | undefined;
 
     if (newSupervision) {
-      edits = instantiateSubscriptionSupervision(
-        selectedControl,
-        this.selectedIed
-      );
+      this.createNewSupervision(selectedControl);
     } else {
       edits = instantiateSubscriptionSupervision(
         selectedControl,
         this.selectedIed,
         selectedSupervision ?? undefined
       );
+      this.dispatchEvent(newEditEvent(edits));
     }
-    this.dispatchEvent(newEditEvent(edits));
+
     this.updateSupervisedControlBlocks();
+  }
+
+  // TODO: restructure in terms of edits
+  private createNewSupervision(selectedControl: Element): void {
+    const subscriberIED = this.selectedIed!;
+    const supervisionType =
+      selectedControl?.tagName === 'GSEControl' ? 'LGOS' : 'LSVS';
+    const newLN = createNewSupervisionLnInst(
+      selectedControl,
+      subscriberIED,
+      supervisionType
+    );
+    let edits: Edit[];
+
+    const parent = subscriberIED.querySelector(
+      `LN[lnClass="${supervisionType}"]`
+    )?.parentElement;
+    if (parent && newLN) {
+      // use Insert edit for supervision LN
+      edits = [
+        {
+          parent,
+          node: newLN,
+          reference:
+            parent!.querySelector(`LN[lnClass="${supervisionType}"]:last-child`)
+              ?.nextElementSibling ?? null,
+        },
+      ];
+
+      const instanceNum = newLN?.getAttribute('inst');
+
+      // TODO: Explain To The User That They Have Erred And Can't Make Any New Subscriptions!
+      if (edits) {
+        this.dispatchEvent(newEditEvent(edits));
+        const instantiationEdit = instantiateSubscriptionSupervision(
+          selectedControl,
+          this.selectedIed,
+          parent!.querySelector(
+            `LN[lnClass="${supervisionType}"][inst="${instanceNum}"]`
+          )!
+        );
+        this.dispatchEvent(newEditEvent(instantiationEdit));
+      }
+    }
   }
 
   private renderUnusedControlList(): TemplateResult {
@@ -851,7 +894,6 @@ export default class Supervision extends LitElement {
   private renderUnusedSupervisionList(): TemplateResult {
     return html`<oscd-filtered-list
       id="unusedSupervisions"
-      activatable
       @selected=${(ev: SingleSelectedEvent) => {
         console.log('supervision');
         const selectedListItem = (<ListItemBase>(
@@ -882,10 +924,11 @@ export default class Supervision extends LitElement {
             this.selectedSupervision,
             this.newSupervision
           );
-          this.selectedControl = null;
-          this.selectedSupervision = null;
-          this.newSupervision = false;
         }
+
+        this.selectedControl = null;
+        this.selectedSupervision = null;
+        this.newSupervision = false;
 
         this.clearListSelections();
       }}
@@ -913,10 +956,12 @@ export default class Supervision extends LitElement {
       </div>
       <hr />
       <div class="column-unused">
-        <h2 class="${this.selectedControl ? 'selected' : ''}">
-          ${this.selectedControl
-            ? msg('Select Supervision Logical Node')
-            : msg('Available Supervision Logical Nodes')}
+        <h2>
+          <span class="${this.selectedControl ? 'selected' : ''}"
+            >${this.selectedControl
+              ? msg('Select Supervision Logical Node')
+              : msg('Available Supervision Logical Nodes')}
+          </span>
           <mwc-icon-button
             id="createNewLN"
             title="${msg('New Supervision LN')}"
@@ -990,7 +1035,8 @@ export default class Supervision extends LitElement {
       transition: background-color 150ms linear;
     }
 
-    h2.selected {
+    h2.selected,
+    h2 .selected {
       font-weight: 400;
       color: var(--mdc-theme-primary, #6200ee);
     }
