@@ -9519,43 +9519,28 @@ function instantiateSubscriptionSupervision(controlBlock, subscriberIED, existin
             node: daiElement,
         });
     }
-    let valElement = availableLN.querySelector(`Val`);
-    // TODO: Ask ca-d. Can't update an elements "content" directly so must remove and recreate?
-    if (valElement)
-        edits.push({ node: valElement });
-    valElement = subscriberIED.ownerDocument.createElementNS(SCL_NAMESPACE, 'Val');
-    // TODO: Fixed, this is not done like this or we do an update action
-    // TODO: We can't do that! This is a crime which must also be fixed in oscd-subscriber-later-binding
-    // This is not using the Action / Edit API !!!
-    valElement.textContent = controlBlockReference(controlBlock);
+    const valTextContent = controlBlockReference(controlBlock);
+    const valElement = daiElement.querySelector(`Val`);
+    let newValElement;
+    if (valElement) {
+        // remove old element
+        edits.push({
+            node: valElement,
+        });
+        newValElement = valElement.cloneNode(true);
+    }
+    else {
+        newValElement = subscriberIED.ownerDocument.createElementNS(SCL_NAMESPACE, 'Val');
+    }
+    newValElement.textContent = valTextContent;
+    // add new element
     edits.push({
         parent: daiElement,
         reference: null,
-        node: valElement,
+        node: newValElement,
     });
     return edits;
 }
-// Old Code
-// let valElement = availableLN.querySelector(`Val`);
-//   // TODO: Ask ca-d. Can't update an elements "content" directly so must remove and recreate?
-//   if (valElement) {
-//     edits.push({node: valElement})
-//   }
-//   if (!valElement) {
-//     valElement = subscriberIED.ownerDocument.createElementNS(
-//       SCL_NAMESPACE,
-//       'Val'
-//     );
-//     // TODO: Fixed, this is not done like this or we do an update action
-//     // TODO: We can't do that! This is a crime which must also be fixed in oscd-subscriber-later-binding
-//     // This is not using the Action / Edit API !!!
-//     valElement.textContent = controlBlockReference(controlBlock);
-//     edits.push({
-//       parent: daiElement!,
-//       reference: null,
-//       node: valElement,
-//     });
-//   }
 
 /**
  * Extract the 'name' attribute from the given XML element.
@@ -12105,13 +12090,39 @@ class Supervision extends s$1 {
     createSupervision(selectedControl, selectedSupervision, newSupervision) {
         let edits;
         if (newSupervision) {
-            edits = instantiateSubscriptionSupervision(selectedControl, this.selectedIed);
+            this.createNewSupervision(selectedControl);
         }
         else {
             edits = instantiateSubscriptionSupervision(selectedControl, this.selectedIed, selectedSupervision ?? undefined);
+            this.dispatchEvent(newEditEvent(edits));
         }
-        this.dispatchEvent(newEditEvent(edits));
         this.updateSupervisedControlBlocks();
+    }
+    // TODO: restructure in terms of edits
+    createNewSupervision(selectedControl) {
+        const subscriberIED = this.selectedIed;
+        const supervisionType = selectedControl?.tagName === 'GSEControl' ? 'LGOS' : 'LSVS';
+        const newLN = createNewSupervisionLnInst(selectedControl, subscriberIED, supervisionType);
+        let edits;
+        const parent = subscriberIED.querySelector(`LN[lnClass="${supervisionType}"]`)?.parentElement;
+        if (parent && newLN) {
+            // use Insert edit for supervision LN
+            edits = [
+                {
+                    parent,
+                    node: newLN,
+                    reference: parent.querySelector(`LN[lnClass="${supervisionType}"]:last-child`)
+                        ?.nextElementSibling ?? null,
+                },
+            ];
+            const instanceNum = newLN?.getAttribute('inst');
+            // TODO: Explain To The User That They Have Erred And Can't Make Any New Subscriptions!
+            if (edits) {
+                this.dispatchEvent(newEditEvent(edits));
+                const instantiationEdit = instantiateSubscriptionSupervision(selectedControl, this.selectedIed, parent.querySelector(`LN[lnClass="${supervisionType}"][inst="${instanceNum}"]`));
+                this.dispatchEvent(newEditEvent(instantiationEdit));
+            }
+        }
     }
     renderUnusedControlList() {
         return x `<oscd-filtered-list
@@ -12144,7 +12155,6 @@ class Supervision extends s$1 {
     renderUnusedSupervisionList() {
         return x `<oscd-filtered-list
       id="unusedSupervisions"
-      activatable
       @selected=${(ev) => {
             console.log('supervision');
             const selectedListItem = (ev.target.selected);
@@ -12161,10 +12171,10 @@ class Supervision extends s$1 {
                 (this.selectedSupervision || this.newSupervision)) {
                 console.log('connecting', identity(this.selectedControl), identity(this.selectedSupervision));
                 this.createSupervision(this.selectedControl, this.selectedSupervision, this.newSupervision);
-                this.selectedControl = null;
-                this.selectedSupervision = null;
-                this.newSupervision = false;
             }
+            this.selectedControl = null;
+            this.selectedSupervision = null;
+            this.newSupervision = false;
             this.clearListSelections();
         }}
     >
@@ -12189,10 +12199,12 @@ class Supervision extends s$1 {
       </div>
       <hr />
       <div class="column-unused">
-        <h2 class="${this.selectedControl ? 'selected' : ''}">
-          ${this.selectedControl
+        <h2>
+          <span class="${this.selectedControl ? 'selected' : ''}"
+            >${this.selectedControl
             ? msg('Select Supervision Logical Node')
             : msg('Available Supervision Logical Nodes')}
+          </span>
           <mwc-icon-button
             id="createNewLN"
             title="${msg('New Supervision LN')}"
@@ -12260,7 +12272,8 @@ Supervision.styles = i$5 `
       transition: background-color 150ms linear;
     }
 
-    h2.selected {
+    h2.selected,
+    h2 .selected {
       font-weight: 400;
       color: var(--mdc-theme-primary, #6200ee);
     }

@@ -56,6 +56,7 @@ export default class Supervision extends LitElement {
     private renderInfo;
     private renderIedSelector;
     private createSupervision;
+    private createNewSupervision;
     private renderUnusedControlList;
     private renderUnusedSupervisionList;
     renderUnusedControlBlocksAndSupervisions(): TemplateResult;
