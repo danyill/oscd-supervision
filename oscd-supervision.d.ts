@@ -10,6 +10,7 @@ import '@material/mwc-icon';
 import '@material/mwc-icon-button';
 import type { ListItem } from '@material/mwc-list/mwc-list-item';
 import type { List } from '@material/mwc-list';
+import type { TextField } from '@material/mwc-textfield';
 import './foundation/components/oscd-filter-button.js';
 import './foundation/components/oscd-filtered-list.js';
 /**
@@ -25,6 +26,7 @@ export default class Supervision extends LitElement {
     allControlBlockIds: Array<string>;
     connectedControlBlockIds: Array<string>;
     supervisedControlBlockIds: Array<string>;
+    searchUnusedSupervisions: RegExp;
     private get selectedIed();
     selectedControl: Element | null;
     selectedSupervision: Element | null;
@@ -33,6 +35,8 @@ export default class Supervision extends LitElement {
     selectedUnusedSupervisionsListUI: List;
     selectedUnusedControlUI?: ListItem;
     selectedUnusedSupervisionUI?: ListItem;
+    filterUnusedSupervisionInputUI?: TextField;
+    filterUnusedControlBlocksList?: HTMLElement;
     protected updateConnectedControlBlocks(): void;
     protected updateSupervisedControlBlocks(): void;
     protected updateAllControlBlocks(): void;
@@ -55,6 +59,7 @@ export default class Supervision extends LitElement {
     private renderControlSelector;
     private renderInfo;
     private renderIedSelector;
+    private resetSearchFilters;
     private createSupervision;
     private createNewSupervision;
     private renderUnusedControlList;
