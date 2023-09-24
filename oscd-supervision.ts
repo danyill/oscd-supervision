@@ -548,7 +548,8 @@ export default class Supervision extends LitElement {
 
   private renderDeleteIcons(
     used: boolean = true,
-    unused: boolean = false
+    unused: boolean = false,
+    withFiltering: boolean = false
   ): TemplateResult {
     const firstSupervision = this.getSupervisionLNs(this.controlType)[0];
     return html`<mwc-list class="column mlist deleter">
@@ -563,8 +564,10 @@ export default class Supervision extends LitElement {
           )} ${supervision.getAttribute('desc')}`;
 
           return (
-            this.searchUnusedSupervisions &&
-            this.searchUnusedSupervisions.test(supervisionSearchText)
+            !withFiltering ||
+            (withFiltering &&
+              this.searchUnusedSupervisions &&
+              this.searchUnusedSupervisions.test(supervisionSearchText))
           );
         })
         .map(
@@ -1102,7 +1105,7 @@ export default class Supervision extends LitElement {
         </h2>
         <div class="available-grouper">
           ${this.renderUnusedSupervisionList()}
-          ${this.renderDeleteIcons(false, true)}
+          ${this.renderDeleteIcons(false, true, true)}
         </div>
       </div>
     </section>`;
