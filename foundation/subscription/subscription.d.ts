@@ -64,7 +64,7 @@ export declare function isSupervisionModificationAllowed(ied: Element, supervisi
  * with a single Delete action that removes the LN if it was created in OpenSCD
  * or only the supervision structure DOI/DAI/Val if it was created by the user.
  */
-export declare function removeSubscriptionSupervision(controlBlock: Element | undefined, subscriberIED: Element | undefined): Remove[];
+export declare function removeSubscriptionSupervision(controlBlock: Element | undefined, subscriberIED: Element | undefined): Edit[];
 /**
  * Counts the max number of LN instances with supervision allowed for
  * the given control block's type of message.

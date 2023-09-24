@@ -9345,22 +9345,21 @@ function removeSubscriptionSupervision(controlBlock, subscriberIED) {
     const valElement = getSupervisionCbRefs(subscriberIED, controlBlock.tagName).find(val => val.textContent === controlBlockReference(controlBlock));
     if (!valElement)
         return [];
-    const lnElement = valElement.closest('LN0, LN');
-    if (!lnElement || !lnElement.parentElement)
-        return [];
-    // Check if that one has been created by OpenSCD (private section exists)
-    const isOpenScdCreated = lnElement.querySelector('Private[type="OpenSCD.create"]');
-    return isOpenScdCreated
-        ? [
-            {
-                node: lnElement,
-            },
-        ]
-        : [
-            {
-                node: valElement.closest('DOI'),
-            },
-        ];
+    const daiElement = valElement.closest('DAI');
+    const edits = [];
+    // remove old element
+    edits.push({
+        node: valElement,
+    });
+    const newValElement = valElement.cloneNode(true);
+    newValElement.textContent = '';
+    // add new element
+    edits.push({
+        parent: daiElement,
+        reference: null,
+        node: newValElement,
+    });
+    return edits;
 }
 // TODO: Daniel has changed this function
 /**
@@ -11759,6 +11758,11 @@ class Supervision extends s$1 {
             }
         }
         if (_changedProperties.has('selectedIed') && this.selectedIed) {
+            this.updateControlBlockInfo();
+        }
+        if (_changedProperties.has('editCount') && _changedProperties.size === 1) {
+            // when change is introduced through undo and redo need to update cached
+            // variables
             this.updateControlBlockInfo();
         }
     }
