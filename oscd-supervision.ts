@@ -61,10 +61,6 @@ import type { SelectedItemsChangedEvent } from './foundation/components/oscd-fil
 const controlTag = { GOOSE: 'GSEControl', SMV: 'SampledValueControl' };
 const supervisionLnType = { GOOSE: 'LGOS', SMV: 'LSVS' };
 
-// <GSEControl name="Ind" datSet="Ind" confRev="1" type="GOOSE" appID="0001">
-// <Private type="NR_Port">1-A</Private>
-// </GSEControl>
-
 function controlBlockDescription(control: Element): {
   pathName: string;
   pathLDeviceAndLN: string;
@@ -152,8 +148,6 @@ function getUsageIcon(percent: number): string {
   return progressIcons[`${closestIconPercent}`];
 }
 
-// import { translate } from 'lit-translate';
-
 /**
  * Editor for GOOSE and SMV supervision LNs
  */
@@ -190,8 +184,8 @@ export default class Supervision extends LitElement {
 
   @state()
   private get selectedIed(): Element | undefined {
-    // When there is no IED selected, or the selected IED has no parent (IED has been removed)
-    // select the first IED from the List.
+    // When there is no IED selected, or the selected IED has no parent
+    // (IED has been removed) select the first IED from the list
     if (this.selectedIEDs.length >= 1) {
       return this.iedList.find(element => {
         const iedName = getNameAttribute(element);
@@ -254,7 +248,7 @@ export default class Supervision extends LitElement {
       }
     });
     this.connectedControlBlockIds = Array.from(connectedControlBlockIds);
-    console.log('updated connectedControlBlockIds');
+
     this.requestUpdate();
   }
 
@@ -310,7 +304,7 @@ export default class Supervision extends LitElement {
     super.updated(_changedProperties);
 
     // When the document is updated, we reset the selected IED.
-    // TODO: Detect same document opened twice. Howto?
+    // TODO: Detect same document opened twice.
     if (_changedProperties.has('doc')) {
       this.selectedIEDs = [];
 
@@ -328,8 +322,9 @@ export default class Supervision extends LitElement {
 
     if (_changedProperties.has('editCount') && _changedProperties.size === 1) {
       // when change is introduced through undo and redo need to update cached
-      // variables
+      // variables and reset any in-progress user action
       this.updateControlBlockInfo();
+      this.clearListSelections();
     }
   }
 
@@ -373,16 +368,6 @@ export default class Supervision extends LitElement {
       <!-- TODO: In future add wizards -->
     `;
   }
-
-  //   TODO: If GoCBRef has a DAI with name = d should we show this in the description?
-  // <DOI name="GoCBRef">
-  // <DAI name="d" valKind="RO" valImport="true">
-  //   <Val>Setting RxGOOSE1 GoCBRef</Val>
-  // </DAI>
-  // <DAI name="setSrcRef" valKind="RO" valImport="true">
-  //   <Val/>
-  // </DAI>
-  // </DOI>
 
   // eslint-disable-next-line class-methods-use-this
   renderSupervisionNode(lN: Element, interactive: boolean): TemplateResult {
@@ -441,11 +426,6 @@ export default class Supervision extends LitElement {
       this.selectedUnusedSupervisionUI!.selected = false;
       this.selectedUnusedSupervisionUI!.activated = false;
     }
-
-    // this.selectedUnusedControlsListUI.layout(true);
-    // this.selectedUnusedSupervisionsListUI.layout(true);
-
-    // this.requestUpdate();
   }
 
   private getSupLNsWithCBs(
@@ -608,10 +588,7 @@ export default class Supervision extends LitElement {
                 );
 
                 this.dispatchEvent(newEditEvent(removeEdit));
-                // does this need to be awaited?
-                // await this.updateComplete;
                 this.updateSupervisedControlBlocks();
-
                 this.requestUpdate();
               }
 
@@ -884,12 +861,10 @@ export default class Supervision extends LitElement {
       id="unusedControls"
       activatable
       @selected=${(ev: SingleSelectedEvent) => {
-        console.log('control');
         const selectedListItem = (<ListItemBase>(
           (<OscdFilteredList>ev.target).selected
         ))!;
         if (!selectedListItem) return;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { control } = selectedListItem.dataset;
         const selectedControl = <Element>(
           this.doc.querySelector(
@@ -903,16 +878,12 @@ export default class Supervision extends LitElement {
           this.selectedControl &&
           (this.selectedSupervision || this.newSupervision)
         ) {
-          console.log(
-            'connecting',
-            identity(this.selectedControl),
-            identity(this.selectedSupervision)
-          );
           this.createSupervision(
             this.selectedControl,
             this.selectedSupervision,
             this.newSupervision
           );
+
           this.selectedControl = null;
           this.selectedSupervision = null;
           this.newSupervision = false;
@@ -934,7 +905,7 @@ export default class Supervision extends LitElement {
           (<OscdFilteredList>ev.target).selected
         ))!;
         if (!selectedListItem) return;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         const { supervision } = selectedListItem.dataset;
         const selectedSupervision = <Element>(
           this.doc.querySelector(selector('LN', supervision ?? 'Unknown'))
@@ -948,11 +919,6 @@ export default class Supervision extends LitElement {
           this.selectedControl &&
           (this.selectedSupervision || this.newSupervision)
         ) {
-          console.log(
-            'connecting',
-            identity(this.selectedControl),
-            identity(this.selectedSupervision)
-          );
           this.createSupervision(
             this.selectedControl,
             this.selectedSupervision,
