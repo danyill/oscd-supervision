@@ -24,11 +24,13 @@ import '@material/mwc-icon-button';
 import type { ListItem } from '@material/mwc-list/mwc-list-item';
 import type { List, SingleSelectedEvent } from '@material/mwc-list';
 import type { ListItemBase } from '@material/mwc-list/mwc-list-item-base.js';
+import type { TextField } from '@material/mwc-textfield';
 
 import './foundation/components/oscd-filter-button.js';
 import './foundation/components/oscd-filtered-list.js';
 
 // import { canInstantiateSubscriptionSupervision } from '@openenergytools/scl-lib';
+
 import {
   compareNames,
   findControlBlocks,
@@ -149,6 +151,47 @@ function getUsageIcon(percent: number): string {
 }
 
 /**
+ * Creates a regular expression to allow case-insensitive searching of list
+ * items.
+ *
+ * * Supports globbing with * and
+ * * Supports quoting using both ' and " and is an AND-ing search which
+ *   narrows as further search text is added.
+ *
+ * @param searchExpression
+ * @returns a regular expression
+ */
+function getSearchRegex(searchExpression: string): RegExp {
+  if (searchExpression === '') {
+    return /.*/i;
+  }
+  const terms: string[] =
+    searchExpression
+      .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+      .trim()
+      .match(/(?:[^\s"']+|['"][^'"]*["'])+/g) ?? [];
+
+  const expandedTerms = terms.map(term =>
+    term.replace(/\*/g, '.*').replace(/\?/g, '.{1}').replace(/"|'/g, '')
+  );
+
+  const regexString = expandedTerms.map(term => `(?=.*${term})`);
+
+  return new RegExp(`${regexString.join('')}.*`, 'i');
+}
+
+function debounce(callback: any, delay = 100) {
+  let timeout: any;
+
+  return (...args: any) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => {
+      callback(...args);
+    }, delay);
+  };
+}
+
+/**
  * Editor for GOOSE and SMV supervision LNs
  */
 export default class Supervision extends LitElement {
@@ -182,6 +225,9 @@ export default class Supervision extends LitElement {
   @state()
   supervisedControlBlockIds: Array<string> = [];
 
+  @property({ type: String })
+  searchUnusedSupervisions: RegExp = /.*/i;
+
   @state()
   private get selectedIed(): Element | undefined {
     // When there is no IED selected, or the selected IED has no parent
@@ -213,6 +259,12 @@ export default class Supervision extends LitElement {
 
   @query('#unusedSupervisions mwc-list-item[selected]')
   selectedUnusedSupervisionUI?: ListItem;
+
+  @query('#filterUnusedSupervisionInput')
+  filterUnusedSupervisionInputUI?: TextField;
+
+  @query('#unusedControls')
+  filterUnusedControlBlocksList?: HTMLElement;
 
   protected updateConnectedControlBlocks() {
     if (!this.selectedIed) return;
@@ -469,9 +521,18 @@ export default class Supervision extends LitElement {
     const availableSupervisionLNs =
       maxSupervisionLNs - instantiatedSupervisionLNs;
 
-    return html`${this.getSupLNsWithCBs(used, unused).map(
-        lN => html`${this.renderUnusedSupervisionNode(lN)}`
-      )}
+    return html`${this.getSupLNsWithCBs(used, unused)
+        .filter(supervision => {
+          const supervisionSearchText = `${identity(
+            supervision
+          )} ${supervision.getAttribute('desc')}`;
+
+          return (
+            this.searchUnusedSupervisions &&
+            this.searchUnusedSupervisions.test(supervisionSearchText)
+          );
+        })
+        .map(lN => html`${this.renderUnusedSupervisionNode(lN)}`)}
       <mwc-list-item
         hasMeta
         class="sup-ln mitem"
@@ -495,48 +556,59 @@ export default class Supervision extends LitElement {
       ${unused
         ? html`<mwc-list-item twoline noninteractive></mwc-list-item>`
         : nothing}
-      ${this.getSupLNsWithCBs(used, unused).map(
-        lN => html`
-          <mwc-list-item
-            ?noninteractive=${!isSupervisionModificationAllowed(
-              this.selectedIed!,
-              supervisionLnType[this.controlType]
-            )}
-            twoline
-            graphic="icon"
-            data-ln="${identity(lN)}"
-            value="${identity(lN)}"
-            title="${lN === firstSupervision
-              ? `${msg('First supervision logical node cannot be removed')}`
-              : ''}"
-          >
-            <mwc-icon
-              class="column button mitem ${lN !== firstSupervision
-                ? 'deletable'
+      ${this.getSupLNsWithCBs(used, unused)
+        .filter(supervision => {
+          const supervisionSearchText = `${identity(
+            supervision
+          )} ${supervision.getAttribute('desc')}`;
+
+          return (
+            this.searchUnusedSupervisions &&
+            this.searchUnusedSupervisions.test(supervisionSearchText)
+          );
+        })
+        .map(
+          lN => html`
+            <mwc-list-item
+              ?noninteractive=${!isSupervisionModificationAllowed(
+                this.selectedIed!,
+                supervisionLnType[this.controlType]
+              )}
+              twoline
+              graphic="icon"
+              data-ln="${identity(lN)}"
+              value="${identity(lN)}"
+              title="${lN === firstSupervision
+                ? `${msg('First supervision logical node cannot be removed')}`
                 : ''}"
-              slot="graphic"
-              label="${msg('Delete supervision logical node')}"
-              data-lN="${identity(lN)}"
-              @click=${() => {
-                if (
-                  isSupervisionModificationAllowed(
-                    this.selectedIed!,
-                    supervisionLnType[this.controlType]
-                  ) &&
-                  lN !== firstSupervision
-                ) {
-                  const removeEdit: Remove = {
-                    node: lN,
-                  };
-                  this.dispatchEvent(newEditEvent(removeEdit));
-                  this.updateSupervisedControlBlocks();
-                }
-              }}
-              >${lN === firstSupervision ? 'info' : 'delete'}</mwc-icon
             >
-          </mwc-list-item>
-        `
-      )}
+              <mwc-icon
+                class="column button mitem ${lN !== firstSupervision
+                  ? 'deletable'
+                  : ''}"
+                slot="graphic"
+                label="${msg('Delete supervision logical node')}"
+                data-lN="${identity(lN)}"
+                @click=${() => {
+                  if (
+                    isSupervisionModificationAllowed(
+                      this.selectedIed!,
+                      supervisionLnType[this.controlType]
+                    ) &&
+                    lN !== firstSupervision
+                  ) {
+                    const removeEdit: Remove = {
+                      node: lN,
+                    };
+                    this.dispatchEvent(newEditEvent(removeEdit));
+                    this.updateSupervisedControlBlocks();
+                  }
+                }}
+                >${lN === firstSupervision ? 'info' : 'delete'}</mwc-icon
+              >
+            </mwc-list-item>
+          `
+        )}
       <!-- show additional item to allow delete button alignment -->
       ${unused
         ? html`<mwc-list-item twoline noninteractive></mwc-list-item>`
@@ -699,6 +771,7 @@ export default class Supervision extends LitElement {
           this.selectedSupervision = null;
 
           this.clearListSelections();
+          this.resetSearchFilters();
         }}
         >${gooseActionIcon}${smvActionIcon}
       </mwc-icon-button-toggle>
@@ -765,6 +838,7 @@ export default class Supervision extends LitElement {
           this.selectedIEDs = e.detail.selectedItems;
           // reset control selection
           this.selectedControl = null;
+          this.resetSearchFilters();
           this.requestUpdate('selectedIed');
         }}"
       >
@@ -793,6 +867,19 @@ export default class Supervision extends LitElement {
         (${this.selectedIed?.getAttribute('type') ?? 'Unknown Type'})
       </h2>
     </div>`;
+  }
+
+  private resetSearchFilters() {
+    if (this.filterUnusedSupervisionInputUI) {
+      this.filterUnusedSupervisionInputUI.value = '';
+      this.searchUnusedSupervisions = /.*/i;
+    }
+
+    if (this.filterUnusedControlBlocksList) {
+      this.filterUnusedControlBlocksList!.shadowRoot!.querySelector(
+        'mwc-textfield'
+      )!.value = '';
+    }
   }
 
   private createSupervision(
@@ -898,43 +985,59 @@ export default class Supervision extends LitElement {
   }
 
   private renderUnusedSupervisionList(): TemplateResult {
-    return html`<oscd-filtered-list
-      id="unusedSupervisions"
-      @selected=${(ev: SingleSelectedEvent) => {
-        const selectedListItem = (<ListItemBase>(
-          (<OscdFilteredList>ev.target).selected
-        ))!;
-        if (!selectedListItem) return;
+    return html`<div class="filteredList">
+      <div class="searchField mitem sup-ln">
+        <abbr title="${msg('Search')}"
+          ><mwc-textfield
+            id="filterUnusedSupervisionInput"
+            iconTrailing="search"
+            outlined
+            @input=${debounce(() => {
+              this.searchUnusedSupervisions = getSearchRegex(
+                this.filterUnusedSupervisionInputUI!.value
+              );
+            })}
+          ></mwc-textfield
+        ></abbr>
+      </div>
+      <mwc-list
+        id="unusedSupervisions"
+        @selected=${(ev: SingleSelectedEvent) => {
+          const selectedListItem = (<ListItemBase>(
+            (<OscdFilteredList>ev.target).selected
+          ))!;
+          if (!selectedListItem) return;
 
-        const { supervision } = selectedListItem.dataset;
-        const selectedSupervision = <Element>(
-          this.doc.querySelector(selector('LN', supervision ?? 'Unknown'))
-        );
-        if (supervision === 'NEW') {
-          this.newSupervision = true;
-        }
-
-        this.selectedSupervision = selectedSupervision;
-        if (
-          this.selectedControl &&
-          (this.selectedSupervision || this.newSupervision)
-        ) {
-          this.createSupervision(
-            this.selectedControl,
-            this.selectedSupervision,
-            this.newSupervision
+          const { supervision } = selectedListItem.dataset;
+          const selectedSupervision = <Element>(
+            this.doc.querySelector(selector('LN', supervision ?? 'Unknown'))
           );
-        }
+          if (supervision === 'NEW') {
+            this.newSupervision = true;
+          }
 
-        this.selectedControl = null;
-        this.selectedSupervision = null;
-        this.newSupervision = false;
+          this.selectedSupervision = selectedSupervision;
+          if (
+            this.selectedControl &&
+            (this.selectedSupervision || this.newSupervision)
+          ) {
+            this.createSupervision(
+              this.selectedControl,
+              this.selectedSupervision,
+              this.newSupervision
+            );
+          }
 
-        this.clearListSelections();
-      }}
-    >
-      ${this.renderUnusedSupervisionLNs(false, true)}
-    </oscd-filtered-list>`;
+          this.selectedControl = null;
+          this.selectedSupervision = null;
+          this.newSupervision = false;
+
+          this.clearListSelections();
+        }}
+      >
+        ${this.renderUnusedSupervisionLNs(false, true)}
+      </mwc-list>
+    </div>`;
   }
 
   renderUnusedControlBlocksAndSupervisions(): TemplateResult {
@@ -1239,6 +1342,28 @@ export default class Supervision extends LitElement {
 
     .invalid-mapping {
       color: var(--mdc-theme-error, red);
+    }
+
+    .searchField {
+      display: flex;
+      flex: auto;
+    }
+
+    .searchField abbr {
+      display: flex;
+      flex: auto;
+      margin: 8px;
+      text-decoration: none;
+      border-bottom: none;
+    }
+
+    .searchField mwc-textfield {
+      width: 100%;
+      --mdc-shape-small: 28px;
+    }
+
+    .filteredList {
+      width: 100%;
     }
   `;
 }
