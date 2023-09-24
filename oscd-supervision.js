@@ -11664,6 +11664,7 @@ function getUsageIcon(percent) {
 class Supervision extends s$1 {
     constructor() {
         super(...arguments);
+        this.editCount = -1;
         this.controlType = 'GOOSE';
         this.selectedIEDs = [];
         this.allControlBlockIds = [];
