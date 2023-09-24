@@ -47,6 +47,7 @@ import { styles } from './foundation/styles/styles.js';
 
 import {
   controlBlockReference,
+  createNewSupervisionLnEvent as createNewSupervisionLnEdit,
   createNewSupervisionLnInst,
   instantiateSubscriptionSupervision,
   isSupervisionModificationAllowed,
@@ -445,13 +446,24 @@ export default class Supervision extends LitElement {
     used: boolean = true,
     unused: boolean = false
   ): Element[] {
-    return this.getSupervisionLNs(this.controlType).filter(lN => {
-      const cbRef = getSupervisionControlBlockRef(lN);
-      const cbRefUsed = this.allControlBlockIds.includes(
-        cbRef ?? 'Unknown Control'
-      );
-      return (cbRefUsed && used) || (!cbRefUsed && unused);
-    });
+    return this.getSupervisionLNs(this.controlType)
+      .filter(lN => {
+        const cbRef = getSupervisionControlBlockRef(lN);
+        const cbRefUsed = this.allControlBlockIds.includes(
+          cbRef ?? 'Unknown Control'
+        );
+        return (cbRefUsed && used) || (!cbRefUsed && unused);
+      })
+      .sort((lnA: Element, lnB: Element): number => {
+        // ensure stable sort order based on hierarchy and instance number
+        const instA = `${identity(lnA.parentElement)} ${lnA
+          .getAttribute('inst')!
+          .padStart(5, '0')}`;
+        const instB = `${identity(lnB.parentElement)} ${lnB
+          .getAttribute('inst')!
+          .padStart(5, '0')}`;
+        return instA.localeCompare(instB);
+      });
   }
 
   protected renderUnusedSupervisionLNs(
@@ -459,7 +471,19 @@ export default class Supervision extends LitElement {
     unused = false
   ): TemplateResult {
     if (!this.selectedIed) return html``;
-    return html` ${this.getSupLNsWithCBs(used, unused).map(
+
+    const maxSupervisionLNs = this.selectedIed
+      ? maxSupervisions(this.selectedIed, controlTag[this.controlType])
+      : 0;
+
+    const instantiatedSupervisionLNs = this.getSupervisionLNs(
+      this.controlType
+    ).length;
+
+    const availableSupervisionLNs =
+      maxSupervisionLNs - instantiatedSupervisionLNs;
+
+    return html`${this.getSupLNsWithCBs(used, unused).map(
         lN => html`${this.renderUnusedSupervisionNode(lN)}`
       )}
       <mwc-list-item
@@ -468,6 +492,7 @@ export default class Supervision extends LitElement {
         graphic="icon"
         data-supervision="NEW"
         value="New Supervision LN"
+        ?noninteractive=${availableSupervisionLNs <= 0}
       >
         <span>${msg('New Supervision LN')}</span>
         <mwc-icon slot="graphic">heart_plus</mwc-icon>
@@ -582,6 +607,8 @@ export default class Supervision extends LitElement {
                 this.updateSupervisedControlBlocks();
                 this.requestUpdate();
               }
+
+              this.clearListSelections();
             }}
           >
             <mwc-icon
@@ -683,6 +710,11 @@ export default class Supervision extends LitElement {
           } else {
             this.controlType = 'GOOSE';
           }
+
+          this.selectedControl = null;
+          this.selectedSupervision = null;
+
+          this.clearListSelections();
         }}
         >${gooseActionIcon}${smvActionIcon}
       </mwc-icon-button-toggle>
@@ -805,11 +837,7 @@ export default class Supervision extends LitElement {
     const subscriberIED = this.selectedIed!;
     const supervisionType =
       selectedControl?.tagName === 'GSEControl' ? 'LGOS' : 'LSVS';
-    const newLN = createNewSupervisionLnInst(
-      selectedControl,
-      subscriberIED,
-      supervisionType
-    );
+    const newLN = createNewSupervisionLnInst(subscriberIED, supervisionType);
     let edits: Edit[];
 
     const parent = subscriberIED.querySelector(
@@ -895,7 +923,6 @@ export default class Supervision extends LitElement {
     return html`<oscd-filtered-list
       id="unusedSupervisions"
       @selected=${(ev: SingleSelectedEvent) => {
-        console.log('supervision');
         const selectedListItem = (<ListItemBase>(
           (<OscdFilteredList>ev.target).selected
         ))!;
@@ -941,6 +968,17 @@ export default class Supervision extends LitElement {
     const controlName = this.selectedControl?.getAttribute('name');
     const iedName = this.selectedControl?.closest('IED')!.getAttribute('name');
 
+    const maxSupervisionLNs = this.selectedIed
+      ? maxSupervisions(this.selectedIed, controlTag[this.controlType])
+      : 0;
+
+    const instantiatedSupervisionLNs = this.getSupervisionLNs(
+      this.controlType
+    ).length;
+
+    const availableSupervisionLNs =
+      maxSupervisionLNs - instantiatedSupervisionLNs;
+
     return html`<section class="unused">
       <div class="column-unused">
         ${this.selectedControl
@@ -964,10 +1002,25 @@ export default class Supervision extends LitElement {
           </span>
           <mwc-icon-button
             id="createNewLN"
+            class="greyOutDisabled"
             title="${msg('New Supervision LN')}"
             icon="heart_plus"
+            ?disabled=${availableSupervisionLNs <= 0}
             @click=${() => {
-              console.log('Add new supervision');
+              if (this.selectedIed) {
+                const supervisionType =
+                  this.controlType === 'GOOSE' ? 'LGOS' : 'LSVS';
+
+                const edit = createNewSupervisionLnEdit(
+                  this.selectedIed,
+                  supervisionType
+                );
+
+                if (edit) this.dispatchEvent(newEditEvent(edit));
+
+                // TODO: Why is editCount not sufficient to re-render?
+                this.requestUpdate();
+              }
             }}
           ></mwc-icon-button>
         </h2>
@@ -984,39 +1037,73 @@ export default class Supervision extends LitElement {
 
     if (this.iedList.length === 0) return html`<h1>>No IEDs present</h1>`;
 
-    return html`
-    <div id="controlSection">
-      ${this.renderIedSelector()}
-      ${this.renderInfo()}
-    </div>
-    <section>
-      ${this.renderControlSelector()}
-      <div class="column remover"></div>
-      <h2 class="column">Supervision Logical Nodes</h2>
-      <div class="column deleter"></div>
-      ${this.renderUsedControls()}
-      ${this.renderUsedSupervisionRemovalIcons()}
-      ${this.renderUsedSupervisionLNs(true, false)}
-      ${this.renderDeleteIcons(true, false)}
+    return html`<div id="container">
+      <div id="controlSection">
+        ${this.renderIedSelector()} ${this.renderInfo()}
       </div>
-    </section>
-    ${
-      this.selectedIed &&
-      isSupervisionModificationAllowed(
-        this.selectedIed,
-        supervisionLnType[this.controlType]
-      )
-        ? html`${this.renderUnusedControlBlocksAndSupervisions()}`
-        : nothing
-    }`;
+      <div id="scrollableArea">
+        <section>
+          ${this.renderControlSelector()}
+          <div class="column remover"></div>
+          <h2 class="column">Supervision Logical Nodes</h2>
+          <div class="column deleter"></div>
+          ${this.renderUsedControls()}
+          ${this.renderUsedSupervisionRemovalIcons()}
+          ${this.renderUsedSupervisionLNs(true, false)}
+          ${this.renderDeleteIcons(true, false)}
+        </section>
+        ${this.selectedIed &&
+        isSupervisionModificationAllowed(
+          this.selectedIed,
+          supervisionLnType[this.controlType]
+        )
+          ? html`${this.renderUnusedControlBlocksAndSupervisions()}`
+          : nothing}
+      </div>
+    </div>`;
   }
 
   static styles = css`
     ${styles}
 
     :host {
-      width: 100vw;
-      height: 100vh;
+      --disabledVisibleElement: rgba(0, 0, 0, 0.38);
+      --scrollbarBG: var(--mdc-theme-background, #cfcfcf00);
+      --thumbBG: var(--mdc-button-disabled-ink-color, #996cd8cc);
+    }
+
+    #container {
+      width: 100%;
+      height: 100%;
+      display: block;
+      overflow: hidden;
+      height: calc(100vh - 112px);
+    }
+
+    #scrollableArea {
+      overflow-y: scroll;
+      height: calc(100vh - 200px);
+      scrollbar-width: auto;
+      scrollbar-color: var(--thumbBG) var(--scrollbarBG);
+    }
+
+    #scrollableArea::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    #scrollableArea::-webkit-scrollbar-track {
+      background: var(--scrollbarBG);
+    }
+
+    #scrollableArea::-webkit-scrollbar-thumb {
+      background: var(--thumbBG);
+      border-radius: 6px;
+    }
+
+    @media (max-width: 700px) {
+      #container {
+        height: calc(100vh - 110px);
+      }
     }
 
     h1,
@@ -1061,7 +1148,7 @@ export default class Supervision extends LitElement {
       display: flex;
       flex-wrap: wrap;
       column-gap: 20px;
-      padding: 20px;
+      padding: 10px 20px 0px 20px;
     }
 
     section.unused {
@@ -1103,6 +1190,15 @@ export default class Supervision extends LitElement {
       --mdc-icon-size: 32px;
       color: var(--mdc-theme-secondary, #018786);
       padding-right: 5px;
+    }
+
+    /* TODO: Match theme colours, but how? */
+    .greyOutDisabled {
+      --mdc-theme-text-disabled-on-light: var(--disabledVisibleElement);
+    }
+
+    .sup-ln.mitem[data-supervision='NEW'][noninteractive] {
+      color: var(--disabledVisibleElement);
     }
 
     .item-grouper {

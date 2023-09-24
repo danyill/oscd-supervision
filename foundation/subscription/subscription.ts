@@ -1,4 +1,4 @@
-import { Insert, Remove } from '@openscd/open-scd-core';
+import { Edit, Insert, Remove } from '@openscd/open-scd-core';
 
 import { minAvailableLogicalNodeInstance } from '../foundation.js';
 
@@ -403,7 +403,6 @@ function isSupervisionAllowed(
  * @returns The LN instance or null if no LN instance could be found or created
  */
 export function createNewSupervisionLnInst(
-  controlBlock: Element,
   subscriberIED: Element,
   supervisionType: string
 ): Element | null {
@@ -418,15 +417,26 @@ export function createNewSupervisionLnInst(
   openScdTag.setAttribute('type', 'OpenSCD.create');
   newLN.appendChild(openScdTag);
   newLN.setAttribute('lnClass', supervisionType);
-  const instantiatedSiblings = getSupervisionCbRefs(
-    subscriberIED,
-    controlBlock.tagName
-  )[0]?.closest('LN');
 
-  if (!instantiatedSiblings) return null;
+  // TODO: Why is this here? getSupervisionCbRefs is not of use.
+  // Have adjusted to just find the first supervision, no need for it to be instantiated.
+  // To create a new LGOS/LSVS LN there should be no need for a Val element to exist somewhere else.
+  // const supervisionName = supervisionType === 'LGOS' ? 'GoCBRef' : 'SvCBRef';
+
+  const selectorString = `LN[lnClass="${supervisionType}"],LN0[lnClass="${supervisionType}"]`;
+
+  // TOD: Think as to why this removed portion might be needed...
+  // >DOI[name="${supervisionName}"]>DAI[name="setSrcRef"]>Val,
+  //   LN0[lnClass="${supervisionType}"]>DOI[name="${supervisionName}"]>DAI[name="setSrcRef"]>Val`;
+
+  const firstSiblingSupervisionLN = Array.from(
+    subscriberIED.querySelectorAll(selectorString)
+  )[0];
+
+  if (!firstSiblingSupervisionLN) return null;
   newLN.setAttribute(
     'lnType',
-    instantiatedSiblings?.getAttribute('lnType') ?? ''
+    firstSiblingSupervisionLN?.getAttribute('lnType') ?? ''
   );
 
   /* Before we return, we make sure that LN's inst is unique, non-empty
@@ -442,6 +452,38 @@ export function createNewSupervisionLnInst(
     newLN.setAttribute('inst', instNumber);
   }
   return newLN;
+}
+
+/** Returns an new LN instance available for supervision instantiation
+ *
+ * @param controlBlock The GOOSE or SMV message element
+ * @param subscriberIED The subscriber IED
+ * @returns The LN instance or null if no LN instance could be found or created
+ */
+export function createNewSupervisionLnEvent(
+  ied: Element,
+  supervisionType: 'LGOS' | 'LSVS'
+): Edit | null {
+  const newLN = createNewSupervisionLnInst(ied, supervisionType);
+
+  if (!newLN) return null;
+
+  const parent = ied.querySelector(
+    `LN[lnClass="${supervisionType}"]`
+  )?.parentElement;
+
+  if (parent && newLN) {
+    const edit = {
+      parent,
+      node: newLN,
+      reference:
+        parent!.querySelector(`LN[lnClass="${supervisionType}"]:last-child`)
+          ?.nextElementSibling ?? null,
+    };
+
+    return edit;
+  }
+  return null;
 }
 
 /* TODO: Update and add proper unit tests, needs to be changed for subscriber plugin */
@@ -475,11 +517,7 @@ export function findOrCreateAvailableLNInst(
     }) ?? null;
 
   if (!availableLN) {
-    availableLN = createNewSupervisionLnInst(
-      controlBlock,
-      subscriberIED,
-      supervisionType
-    );
+    availableLN = createNewSupervisionLnInst(subscriberIED, supervisionType);
   }
 
   return availableLN;
