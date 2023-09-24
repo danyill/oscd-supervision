@@ -1,4 +1,4 @@
-import { Insert, Remove } from '@openscd/open-scd-core';
+import { Edit, Insert, Remove } from '@openscd/open-scd-core';
 export declare const SCL_NAMESPACE = "http://www.iec.ch/61850/2003/SCL";
 /**
  * Simple function to check if the attribute of the Left Side has the same value as the attribute of the Right Element.
@@ -80,7 +80,14 @@ export declare function maxSupervisions(subscriberIED: Element, controlBlockType
  * @param subscriberIED The subscriber IED
  * @returns The LN instance or null if no LN instance could be found or created
  */
-export declare function createNewSupervisionLnInst(controlBlock: Element, subscriberIED: Element, supervisionType: string): Element | null;
+export declare function createNewSupervisionLnInst(subscriberIED: Element, supervisionType: string): Element | null;
+/** Returns an new LN instance available for supervision instantiation
+ *
+ * @param controlBlock The GOOSE or SMV message element
+ * @param subscriberIED The subscriber IED
+ * @returns The LN instance or null if no LN instance could be found or created
+ */
+export declare function createNewSupervisionLnEvent(ied: Element, supervisionType: 'LGOS' | 'LSVS'): Edit | null;
 /** Returns an new or existing LN instance available for supervision instantiation
  *
  * @param controlBlock The GOOSE or SMV message element

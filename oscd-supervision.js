@@ -9416,16 +9416,24 @@ function isSupervisionAllowed(controlBlock, subscriberIED, supervisionType) {
  * @param subscriberIED The subscriber IED
  * @returns The LN instance or null if no LN instance could be found or created
  */
-function createNewSupervisionLnInst(controlBlock, subscriberIED, supervisionType) {
+function createNewSupervisionLnInst(subscriberIED, supervisionType) {
     const newLN = subscriberIED.ownerDocument.createElementNS(SCL_NAMESPACE, 'LN');
     const openScdTag = subscriberIED.ownerDocument.createElementNS(SCL_NAMESPACE, 'Private');
     openScdTag.setAttribute('type', 'OpenSCD.create');
     newLN.appendChild(openScdTag);
     newLN.setAttribute('lnClass', supervisionType);
-    const instantiatedSiblings = getSupervisionCbRefs(subscriberIED, controlBlock.tagName)[0]?.closest('LN');
-    if (!instantiatedSiblings)
+    // TODO: Why is this here? getSupervisionCbRefs is not of use.
+    // Have adjusted to just find the first supervision, no need for it to be instantiated.
+    // To create a new LGOS/LSVS LN there should be no need for a Val element to exist somewhere else.
+    // const supervisionName = supervisionType === 'LGOS' ? 'GoCBRef' : 'SvCBRef';
+    const selectorString = `LN[lnClass="${supervisionType}"],LN0[lnClass="${supervisionType}"]`;
+    // TOD: Think as to why this removed portion might be needed...
+    // >DOI[name="${supervisionName}"]>DAI[name="setSrcRef"]>Val,
+    //   LN0[lnClass="${supervisionType}"]>DOI[name="${supervisionName}"]>DAI[name="setSrcRef"]>Val`;
+    const firstSiblingSupervisionLN = Array.from(subscriberIED.querySelectorAll(selectorString))[0];
+    if (!firstSiblingSupervisionLN)
         return null;
-    newLN.setAttribute('lnType', instantiatedSiblings?.getAttribute('lnType') ?? '');
+    newLN.setAttribute('lnType', firstSiblingSupervisionLN?.getAttribute('lnType') ?? '');
     /* Before we return, we make sure that LN's inst is unique, non-empty
     and also the minimum inst as the minimum of all available in the IED */
     const inst = newLN.getAttribute('inst') ?? '';
@@ -9436,6 +9444,28 @@ function createNewSupervisionLnInst(controlBlock, subscriberIED, supervisionType
         newLN.setAttribute('inst', instNumber);
     }
     return newLN;
+}
+/** Returns an new LN instance available for supervision instantiation
+ *
+ * @param controlBlock The GOOSE or SMV message element
+ * @param subscriberIED The subscriber IED
+ * @returns The LN instance or null if no LN instance could be found or created
+ */
+function createNewSupervisionLnEvent(ied, supervisionType) {
+    const newLN = createNewSupervisionLnInst(ied, supervisionType);
+    if (!newLN)
+        return null;
+    const parent = ied.querySelector(`LN[lnClass="${supervisionType}"]`)?.parentElement;
+    if (parent && newLN) {
+        const edit = {
+            parent,
+            node: newLN,
+            reference: parent.querySelector(`LN[lnClass="${supervisionType}"]:last-child`)
+                ?.nextElementSibling ?? null,
+        };
+        return edit;
+    }
+    return null;
 }
 /* TODO: Update and add proper unit tests, needs to be changed for subscriber plugin */
 /** Returns an new or existing LN instance available for supervision instantiation
@@ -9452,7 +9482,7 @@ function findOrCreateAvailableLNInst(controlBlock, subscriberIED, supervisionTyp
             ln.querySelector(`DOI[name="${supervisionName}"]>DAI[name="setSrcRef"]>Val`)?.textContent === '');
     }) ?? null;
     if (!availableLN) {
-        availableLN = createNewSupervisionLnInst(controlBlock, subscriberIED, supervisionType);
+        availableLN = createNewSupervisionLnInst(subscriberIED, supervisionType);
     }
     return availableLN;
 }
@@ -11829,22 +11859,39 @@ class Supervision extends s$1 {
         // this.requestUpdate();
     }
     getSupLNsWithCBs(used = true, unused = false) {
-        return this.getSupervisionLNs(this.controlType).filter(lN => {
+        return this.getSupervisionLNs(this.controlType)
+            .filter(lN => {
             const cbRef = getSupervisionControlBlockRef(lN);
             const cbRefUsed = this.allControlBlockIds.includes(cbRef ?? 'Unknown Control');
             return (cbRefUsed && used) || (!cbRefUsed && unused);
+        })
+            .sort((lnA, lnB) => {
+            // ensure stable sort order based on hierarchy and instance number
+            const instA = `${identity(lnA.parentElement)} ${lnA
+                .getAttribute('inst')
+                .padStart(5, '0')}`;
+            const instB = `${identity(lnB.parentElement)} ${lnB
+                .getAttribute('inst')
+                .padStart(5, '0')}`;
+            return instA.localeCompare(instB);
         });
     }
     renderUnusedSupervisionLNs(used = false, unused = false) {
         if (!this.selectedIed)
             return x ``;
-        return x ` ${this.getSupLNsWithCBs(used, unused).map(lN => x `${this.renderUnusedSupervisionNode(lN)}`)}
+        const maxSupervisionLNs = this.selectedIed
+            ? maxSupervisions(this.selectedIed, controlTag[this.controlType])
+            : 0;
+        const instantiatedSupervisionLNs = this.getSupervisionLNs(this.controlType).length;
+        const availableSupervisionLNs = maxSupervisionLNs - instantiatedSupervisionLNs;
+        return x `${this.getSupLNsWithCBs(used, unused).map(lN => x `${this.renderUnusedSupervisionNode(lN)}`)}
       <mwc-list-item
         hasMeta
         class="sup-ln mitem"
         graphic="icon"
         data-supervision="NEW"
         value="New Supervision LN"
+        ?noninteractive=${availableSupervisionLNs <= 0}
       >
         <span>${msg('New Supervision LN')}</span>
         <mwc-icon slot="graphic">heart_plus</mwc-icon>
@@ -11928,6 +11975,7 @@ class Supervision extends s$1 {
                 this.updateSupervisedControlBlocks();
                 this.requestUpdate();
             }
+            this.clearListSelections();
         }}
           >
             <mwc-icon
@@ -12005,6 +12053,9 @@ class Supervision extends s$1 {
             else {
                 this.controlType = 'GOOSE';
             }
+            this.selectedControl = null;
+            this.selectedSupervision = null;
+            this.clearListSelections();
         }}
         >${gooseActionIcon}${smvActionIcon}
       </mwc-icon-button-toggle>
@@ -12102,7 +12153,7 @@ class Supervision extends s$1 {
     createNewSupervision(selectedControl) {
         const subscriberIED = this.selectedIed;
         const supervisionType = selectedControl?.tagName === 'GSEControl' ? 'LGOS' : 'LSVS';
-        const newLN = createNewSupervisionLnInst(selectedControl, subscriberIED, supervisionType);
+        const newLN = createNewSupervisionLnInst(subscriberIED, supervisionType);
         let edits;
         const parent = subscriberIED.querySelector(`LN[lnClass="${supervisionType}"]`)?.parentElement;
         if (parent && newLN) {
@@ -12156,7 +12207,6 @@ class Supervision extends s$1 {
         return x `<oscd-filtered-list
       id="unusedSupervisions"
       @selected=${(ev) => {
-            console.log('supervision');
             const selectedListItem = (ev.target.selected);
             if (!selectedListItem)
                 return;
@@ -12184,6 +12234,11 @@ class Supervision extends s$1 {
     renderUnusedControlBlocksAndSupervisions() {
         const controlName = this.selectedControl?.getAttribute('name');
         const iedName = this.selectedControl?.closest('IED').getAttribute('name');
+        const maxSupervisionLNs = this.selectedIed
+            ? maxSupervisions(this.selectedIed, controlTag[this.controlType])
+            : 0;
+        const instantiatedSupervisionLNs = this.getSupervisionLNs(this.controlType).length;
+        const availableSupervisionLNs = maxSupervisionLNs - instantiatedSupervisionLNs;
         return x `<section class="unused">
       <div class="column-unused">
         ${this.selectedControl
@@ -12207,10 +12262,19 @@ class Supervision extends s$1 {
           </span>
           <mwc-icon-button
             id="createNewLN"
+            class="greyOutDisabled"
             title="${msg('New Supervision LN')}"
             icon="heart_plus"
+            ?disabled=${availableSupervisionLNs <= 0}
             @click=${() => {
-            console.log('Add new supervision');
+            if (this.selectedIed) {
+                const supervisionType = this.controlType === 'GOOSE' ? 'LGOS' : 'LSVS';
+                const edit = createNewSupervisionLnEvent(this.selectedIed, supervisionType);
+                if (edit)
+                    this.dispatchEvent(newEditEvent(edit));
+                // TODO: Why is editCount not sufficient to re-render?
+                this.requestUpdate();
+            }
         }}
           ></mwc-icon-button>
         </h2>
@@ -12226,34 +12290,70 @@ class Supervision extends s$1 {
             return x ``;
         if (this.iedList.length === 0)
             return x `<h1>>No IEDs present</h1>`;
-        return x `
-    <div id="controlSection">
-      ${this.renderIedSelector()}
-      ${this.renderInfo()}
-    </div>
-    <section>
-      ${this.renderControlSelector()}
-      <div class="column remover"></div>
-      <h2 class="column">Supervision Logical Nodes</h2>
-      <div class="column deleter"></div>
-      ${this.renderUsedControls()}
-      ${this.renderUsedSupervisionRemovalIcons()}
-      ${this.renderUsedSupervisionLNs(true, false)}
-      ${this.renderDeleteIcons(true, false)}
+        return x `<div id="container">
+      <div id="controlSection">
+        ${this.renderIedSelector()} ${this.renderInfo()}
       </div>
-    </section>
-    ${this.selectedIed &&
+      <div id="scrollableArea">
+        <section>
+          ${this.renderControlSelector()}
+          <div class="column remover"></div>
+          <h2 class="column">Supervision Logical Nodes</h2>
+          <div class="column deleter"></div>
+          ${this.renderUsedControls()}
+          ${this.renderUsedSupervisionRemovalIcons()}
+          ${this.renderUsedSupervisionLNs(true, false)}
+          ${this.renderDeleteIcons(true, false)}
+        </section>
+        ${this.selectedIed &&
             isSupervisionModificationAllowed(this.selectedIed, supervisionLnType[this.controlType])
             ? x `${this.renderUnusedControlBlocksAndSupervisions()}`
-            : A}`;
+            : A}
+      </div>
+    </div>`;
     }
 }
 Supervision.styles = i$5 `
     ${styles}
 
     :host {
-      width: 100vw;
-      height: 100vh;
+      --disabledVisibleElement: rgba(0, 0, 0, 0.38);
+      --scrollbarBG: var(--mdc-theme-background, #cfcfcf00);
+      --thumbBG: var(--mdc-button-disabled-ink-color, #996cd8cc);
+    }
+
+    #container {
+      width: 100%;
+      height: 100%;
+      display: block;
+      overflow: hidden;
+      height: calc(100vh - 112px);
+    }
+
+    #scrollableArea {
+      overflow-y: scroll;
+      height: calc(100vh - 200px);
+      scrollbar-width: auto;
+      scrollbar-color: var(--thumbBG) var(--scrollbarBG);
+    }
+
+    #scrollableArea::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    #scrollableArea::-webkit-scrollbar-track {
+      background: var(--scrollbarBG);
+    }
+
+    #scrollableArea::-webkit-scrollbar-thumb {
+      background: var(--thumbBG);
+      border-radius: 6px;
+    }
+
+    @media (max-width: 700px) {
+      #container {
+        height: calc(100vh - 110px);
+      }
     }
 
     h1,
@@ -12298,7 +12398,7 @@ Supervision.styles = i$5 `
       display: flex;
       flex-wrap: wrap;
       column-gap: 20px;
-      padding: 20px;
+      padding: 10px 20px 0px 20px;
     }
 
     section.unused {
@@ -12340,6 +12440,15 @@ Supervision.styles = i$5 `
       --mdc-icon-size: 32px;
       color: var(--mdc-theme-secondary, #018786);
       padding-right: 5px;
+    }
+
+    /* TODO: Match theme colours, but how? */
+    .greyOutDisabled {
+      --mdc-theme-text-disabled-on-light: var(--disabledVisibleElement);
+    }
+
+    .sup-ln.mitem[data-supervision='NEW'][noninteractive] {
+      color: var(--disabledVisibleElement);
     }
 
     .item-grouper {
