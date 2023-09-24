@@ -163,7 +163,7 @@ export default class Supervision extends LitElement {
 
   @property() docName!: string;
 
-  @property() editCount!: number;
+  @property() editCount = -1;
 
   @property() controlType: 'GOOSE' | 'SMV' = 'GOOSE';
 

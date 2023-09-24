@@ -26,14 +26,6 @@
         <source>This IED does not support supervision modification. Only viewing supervisions is supported.</source>
         <target>Este IED não suporta modificação de supervisão. Somente a visualização de supervisões é suportada.</target>
       </trans-unit>
-      <trans-unit id="sff2d6df22502e8d3">
-        <source>Subscribed GOOSE Control Blocks</source>
-        <target>Blocos de controle GOOSE subscritos</target>
-      </trans-unit>
-      <trans-unit id="se12126222bc4d9b3">
-        <source>Subscribed SV Control Blocks</source>
-        <target>Blocos de controle SV subscritos</target>
-      </trans-unit>
       <trans-unit id="s18ddd6b4fc394661">
         <source>Available Supervision Logical Nodes</source>
         <target>Nós lógicos de supervisão disponíveis</target>
@@ -52,6 +44,51 @@
       </trans-unit>
 <trans-unit id="saf3b628bc8515d77">
   <source>First supervision logical node cannot be removed</source>
+</trans-unit>
+<trans-unit id="sa9b15d243beb72ca">
+  <source>Select GOOSE Control Block</source>
+</trans-unit>
+<trans-unit id="s5de80cd77362dcba">
+  <source>Select SV Control Block</source>
+</trans-unit>
+<trans-unit id="sf94967dcefac19e3">
+  <source>Select Supervision Logical Node</source>
+</trans-unit>
+<trans-unit id="sbcdf43ebad9c5a3a">
+  <source>Something unexpected happened!</source>
+</trans-unit>
+<trans-unit id="s62b4f83c9503e1af">
+  <source>≥ <x id="0" equiv-text="${redo.length}"/> nodes changed</source>
+</trans-unit>
+<trans-unit id="s0731afca1ab76175">
+  <source><x id="0" equiv-text="${redo.node.nodeName}"/> moved to <x id="1" equiv-text="${redo.parent.nodeName}"/></source>
+</trans-unit>
+<trans-unit id="s83eaab546be4bfb9">
+  <source><x id="0" equiv-text="${redo.node.nodeName}"/> inserted into <x id="1" equiv-text="${redo.parent.nodeName}"/></source>
+</trans-unit>
+<trans-unit id="s0f8217f07c54b541">
+  <source><x id="0" equiv-text="${redo.node.nodeName}"/> removed</source>
+</trans-unit>
+<trans-unit id="s85a55e7007003cc2">
+  <source><x id="0" equiv-text="${redo.element.tagName}"/> updated</source>
+</trans-unit>
+<trans-unit id="s8f4be9f086eb530f">
+  <source>Undo</source>
+</trans-unit>
+<trans-unit id="s7417792bbe720149">
+  <source>Redo</source>
+</trans-unit>
+<trans-unit id="s90c6a2fed2796c07">
+  <source>Editing history</source>
+</trans-unit>
+<trans-unit id="s6d8c02aee480af7a">
+  <source>Menu</source>
+</trans-unit>
+<trans-unit id="sfb0e98cb12fe463c">
+  <source>Your editing history will be displayed here.</source>
+</trans-unit>
+<trans-unit id="s5e8250fb85d64c23">
+  <source>Close</source>
 </trans-unit>
     </body>
   </file>
