@@ -441,7 +441,7 @@ export default class Supervision extends LitElement {
         return (cbRefUsed && used) || (!cbRefUsed && unused);
       })
       .sort((lnA: Element, lnB: Element): number => {
-        // ensure stable sort order based on hierarchy and instance number
+        // ensure stable sort order based on object path and instance number
         const instA = `${identity(lnA.parentElement)} ${lnA
           .getAttribute('inst')!
           .padStart(5, '0')}`;
