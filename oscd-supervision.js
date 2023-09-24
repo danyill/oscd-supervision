@@ -11925,7 +11925,7 @@ class Supervision extends s$1 {
         <mwc-icon slot="graphic">heart_plus</mwc-icon>
       </mwc-list-item>`;
     }
-    renderDeleteIcons(used = true, unused = false) {
+    renderDeleteIcons(used = true, unused = false, withFiltering = false) {
         const firstSupervision = this.getSupervisionLNs(this.controlType)[0];
         return x `<mwc-list class="column mlist deleter">
       <!-- show additional item to allow delete button alignment -->
@@ -11935,8 +11935,10 @@ class Supervision extends s$1 {
       ${this.getSupLNsWithCBs(used, unused)
             .filter(supervision => {
             const supervisionSearchText = `${identity(supervision)} ${supervision.getAttribute('desc')}`;
-            return (this.searchUnusedSupervisions &&
-                this.searchUnusedSupervisions.test(supervisionSearchText));
+            return (!withFiltering ||
+                (withFiltering &&
+                    this.searchUnusedSupervisions &&
+                    this.searchUnusedSupervisions.test(supervisionSearchText)));
         })
             .map(lN => x `
             <mwc-list-item
@@ -12332,7 +12334,7 @@ class Supervision extends s$1 {
         </h2>
         <div class="available-grouper">
           ${this.renderUnusedSupervisionList()}
-          ${this.renderDeleteIcons(false, true)}
+          ${this.renderDeleteIcons(false, true, true)}
         </div>
       </div>
     </section>`;
