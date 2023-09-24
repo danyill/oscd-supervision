@@ -325,6 +325,12 @@ export default class Supervision extends LitElement {
     if (_changedProperties.has('selectedIed') && this.selectedIed) {
       this.updateControlBlockInfo();
     }
+
+    if (_changedProperties.has('editCount') && _changedProperties.size === 1) {
+      // when change is introduced through undo and redo need to update cached
+      // variables
+      this.updateControlBlockInfo();
+    }
   }
 
   // eslint-disable-next-line class-methods-use-this
@@ -605,6 +611,7 @@ export default class Supervision extends LitElement {
                 // does this need to be awaited?
                 // await this.updateComplete;
                 this.updateSupervisedControlBlocks();
+
                 this.requestUpdate();
               }
 

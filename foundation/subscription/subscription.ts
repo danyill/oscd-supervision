@@ -297,30 +297,34 @@ function getSupervisionCbRefs(ied: Element, cbTagName: string): Element[] {
 export function removeSubscriptionSupervision(
   controlBlock: Element | undefined,
   subscriberIED: Element | undefined
-): Remove[] {
+): Edit[] {
   if (!controlBlock || !subscriberIED) return [];
   const valElement = getSupervisionCbRefs(
     subscriberIED,
     controlBlock.tagName
   ).find(val => val.textContent === controlBlockReference(controlBlock));
   if (!valElement) return [];
-  const lnElement = valElement.closest('LN0, LN');
-  if (!lnElement || !lnElement.parentElement) return [];
-  // Check if that one has been created by OpenSCD (private section exists)
-  const isOpenScdCreated = lnElement.querySelector(
-    'Private[type="OpenSCD.create"]'
-  );
-  return isOpenScdCreated
-    ? [
-        {
-          node: lnElement,
-        },
-      ]
-    : [
-        {
-          node: valElement.closest('DOI')!,
-        },
-      ];
+
+  const daiElement = valElement.closest('DAI');
+
+  const edits = [];
+
+  // remove old element
+  edits.push({
+    node: valElement,
+  });
+
+  const newValElement = <Element>valElement.cloneNode(true);
+  newValElement.textContent = '';
+
+  // add new element
+  edits.push({
+    parent: daiElement!,
+    reference: null,
+    node: newValElement,
+  });
+
+  return edits;
 }
 
 // TODO: Daniel has changed this function
