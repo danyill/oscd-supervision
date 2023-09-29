@@ -26,14 +26,6 @@
         <source>This IED does not support supervision modification. Only viewing supervisions is supported.</source>
         <target>Este IED não suporta modificação de supervisão. Somente a visualização de supervisões é suportada.</target>
       </trans-unit>
-      <trans-unit id="s18ddd6b4fc394661">
-        <source>Available Supervision Logical Nodes</source>
-        <target>Nós lógicos de supervisão disponíveis</target>
-      </trans-unit>
-      <trans-unit id="s860007539c72e12d">
-        <source>instantiated</source>
-        <target>instanciado</target>
-      </trans-unit>
       <trans-unit id="s7d678ae4032b59f0">
         <source>used</source>
         <target>usado</target>
@@ -50,9 +42,6 @@
 </trans-unit>
 <trans-unit id="s5de80cd77362dcba">
   <source>Select SV Control Block</source>
-</trans-unit>
-<trans-unit id="sf94967dcefac19e3">
-  <source>Select Supervision Logical Node</source>
 </trans-unit>
 <trans-unit id="sbcdf43ebad9c5a3a">
   <source>Something unexpected happened!</source>
@@ -89,6 +78,24 @@
 </trans-unit>
 <trans-unit id="s5e8250fb85d64c23">
   <source>Close</source>
+</trans-unit>
+<trans-unit id="s5d929ff1619ac0c9">
+  <source>Search</source>
+</trans-unit>
+<trans-unit id="s74770d66bf7310b8">
+  <source>available</source>
+</trans-unit>
+<trans-unit id="s72258a704e2bfd4d">
+  <source>No supervision nodes used</source>
+</trans-unit>
+<trans-unit id="s69d78be01e752f2d">
+  <source>No IED Selected</source>
+</trans-unit>
+<trans-unit id="sf2add3f33cacfd26">
+  <source>Available <x id="0" equiv-text="${this.controlType === 'GOOSE' ? 'LGOS' : 'LSVS'}"/> Supervisions</source>
+</trans-unit>
+<trans-unit id="s41076cfdf7ca3bbf">
+  <source><x id="0" equiv-text="${this.controlType === 'GOOSE' ? 'LGOS' : 'LSVS'}"/> Supervisions</source>
 </trans-unit>
     </body>
   </file>

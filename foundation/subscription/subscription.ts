@@ -271,6 +271,8 @@ export function isSupervisionModificationAllowed(
   return false;
 }
 
+// NOTE: Have removed the LN0 selector here.
+
 /**
  * Return Val elements within an LGOS/LSVS instance for a particular IED and control block type.
  * @param ied - IED SCL element.
@@ -280,7 +282,7 @@ export function isSupervisionModificationAllowed(
 function getSupervisionCbRefs(ied: Element, cbTagName: string): Element[] {
   const supervisionType = cbTagName === 'GSEControl' ? 'LGOS' : 'LSVS';
   const supervisionName = supervisionType === 'LGOS' ? 'GoCBRef' : 'SvCBRef';
-  const selectorString = `LN[lnClass="${supervisionType}"]>DOI[name="${supervisionName}"]>DAI[name="setSrcRef"]>Val,LN0[lnClass="${supervisionType}"]>DOI[name="${supervisionName}"]>DAI[name="setSrcRef"]>Val`;
+  const selectorString = `LN[lnClass="${supervisionType}"]>DOI[name="${supervisionName}"]>DAI[name="setSrcRef"]>Val`;
   return Array.from(ied.querySelectorAll(selectorString));
 }
 

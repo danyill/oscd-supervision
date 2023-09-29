@@ -6,7 +6,7 @@ import {
   PropertyValues,
   TemplateResult,
 } from 'lit';
-import { msg } from '@lit/localize';
+import { msg, str } from '@lit/localize';
 import { property, query, state } from 'lit/decorators.js';
 
 import { Edit, newEditEvent, Remove } from '@openscd/open-scd-core';
@@ -244,8 +244,10 @@ export default class Supervision extends LitElement {
   @state()
   selectedControl: Element | null = null;
 
+  @state()
   selectedSupervision: Element | null = null;
 
+  @state()
   newSupervision = false;
 
   @query('#unusedControls')
@@ -396,6 +398,8 @@ export default class Supervision extends LitElement {
         class="mitem"
         graphic="icon"
         ?hasMeta=${invalidControlBlock}
+        ?noninteractive=${this.supervisedControlBlockIds.length ===
+        this.connectedControlBlockIds.length}
         data-supervision="${identity(lN)}"
         value="${identity(lN)}"
       >
@@ -422,7 +426,7 @@ export default class Supervision extends LitElement {
   }
 
   // eslint-disable-next-line class-methods-use-this
-  renderSupervisionNode(lN: Element, interactive: boolean): TemplateResult {
+  renderSupervisionListItem(lN: Element, interactive: boolean): TemplateResult {
     const description = getDescriptionAttribute(lN);
     return html`
       <mwc-list-item
@@ -539,9 +543,17 @@ export default class Supervision extends LitElement {
         graphic="icon"
         data-supervision="NEW"
         value="New Supervision LN"
-        ?noninteractive=${availableSupervisionLNs <= 0}
+        ?noninteractive=${availableSupervisionLNs === 0 ||
+        this.supervisedControlBlockIds.length ===
+          this.connectedControlBlockIds.length}
       >
-        <span>${msg('New Supervision LN')}</span>
+        <span
+          >${msg('New Supervision LN')}
+          ${instantiatedSupervisionLNs > 0
+            ? html`— ${availableSupervisionLNs} ${msg('available')}</span>
+                </div>`
+            : nothing}
+        </span>
         <mwc-icon slot="graphic">heart_plus</mwc-icon>
       </mwc-list-item>`;
   }
@@ -606,6 +618,8 @@ export default class Supervision extends LitElement {
                     this.dispatchEvent(newEditEvent(removeEdit));
                     this.updateSupervisedControlBlocks();
                   }
+
+                  this.clearListSelections();
                 }}
                 >${lN === firstSupervision ? 'info' : 'delete'}</mwc-icon
               >
@@ -624,16 +638,24 @@ export default class Supervision extends LitElement {
     onlyUnused = false
   ): TemplateResult {
     if (!this.selectedIed) return html``;
+
+    const usedSupervisions = this.getSupervisionLNs(this.controlType).filter(
+      lN => {
+        const cbRef = getSupervisionControlBlockRef(lN);
+        const cbRefUsed = this.allControlBlockIds.includes(
+          cbRef ?? 'Unknown Control'
+        );
+        return (cbRefUsed && onlyUsed) || (!cbRefUsed && onlyUnused);
+      }
+    );
+
+    if (usedSupervisions.length === 0)
+      return html`<h3>${msg('No supervision nodes used')}</h3>`;
+
     return html`<mwc-list class="column mlist">
-      ${this.getSupervisionLNs(this.controlType)
-        .filter(lN => {
-          const cbRef = getSupervisionControlBlockRef(lN);
-          const cbRefUsed = this.allControlBlockIds.includes(
-            cbRef ?? 'Unknown Control'
-          );
-          return (cbRefUsed && onlyUsed) || (!cbRefUsed && onlyUnused);
-        })
-        .map(lN => html`${this.renderSupervisionNode(lN, onlyUnused)}`)}
+      ${usedSupervisions.map(
+        lN => html`${this.renderSupervisionListItem(lN, onlyUnused)}`
+      )}
     </mwc-list>`;
   }
 
@@ -708,7 +730,7 @@ export default class Supervision extends LitElement {
     }
 
     return html`<mwc-list-item
-      ?noninteractive=${!unused}
+      ?noninteractive=${!unused || !this.selectedSupervision}
       graphic="icon"
       ?twoline=${!!pathDescription || !!datasetName}
       data-control="${identity(controlElement)}"
@@ -758,64 +780,8 @@ export default class Supervision extends LitElement {
     >`;
   }
 
-  private renderControlSelector(): TemplateResult {
-    return html`<div id="controlSelector" class="column">
-      <mwc-icon-button-toggle
-        id="controlType"
-        label="${msg('Change between GOOSE and Sampled Value publishers')}"
-        @click=${() => {
-          if (this.controlType === 'GOOSE') {
-            this.controlType = 'SMV';
-          } else {
-            this.controlType = 'GOOSE';
-          }
-
-          this.selectedControl = null;
-          this.selectedSupervision = null;
-
-          this.clearListSelections();
-          this.resetSearchFilters();
-        }}
-        >${gooseActionIcon}${smvActionIcon}
-      </mwc-icon-button-toggle>
-      <h2 id="cbTitle">
-        ${this.controlType === 'GOOSE'
-          ? msg('GOOSE Control Blocks')
-          : msg('SV Control Blocks')}
-      </h2>
-    </div>`;
-  }
-
   private renderInfo(): TemplateResult {
-    const instantiatedSupervisionLNs = this.getSupervisionLNs(
-      this.controlType
-    ).length;
-    const maxSupervisionLNs = this.selectedIed
-      ? maxSupervisions(this.selectedIed, controlTag[this.controlType])
-      : 0;
-
-    const percentInstantiated =
-      (instantiatedSupervisionLNs / maxSupervisionLNs) * 100;
-
-    const usedSupLNs = this.getSupLNsWithCBs(true, false).length;
-    const totalSupLNs = this.getSupLNsWithCBs(true, true).length;
-    const percentUsed = (usedSupLNs / totalSupLNs) * 100;
-
     return html`<div class="side-icons">
-      ${instantiatedSupervisionLNs > 0
-        ? html`<div class="usage-group">
-            <mwc-icon>${getUsageIcon(percentInstantiated)}</mwc-icon>
-            <span class="usage"
-              >${instantiatedSupervisionLNs}
-              ${maxSupervisionLNs !== 0 ? `/ ${maxSupervisionLNs}` : ''}
-              ${msg('instantiated')}</span
-            >
-          </div>`
-        : nothing}
-      <div class="usage-group">
-        <mwc-icon>${getUsageIcon(percentUsed)}</mwc-icon>
-        <span class="usage">${usedSupLNs} / ${totalSupLNs} ${msg('used')}</span>
-      </div>
       ${this.selectedIed &&
       !isSupervisionModificationAllowed(
         this.selectedIed,
@@ -866,7 +832,7 @@ export default class Supervision extends LitElement {
       <h2>
         ${this.selectedIed
           ? getNameAttribute(this.selectedIed)
-          : 'No IED Selected'}
+          : msg('No IED Selected')}
         (${this.selectedIed?.getAttribute('type') ?? 'Unknown Type'})
       </h2>
     </div>`;
@@ -949,7 +915,6 @@ export default class Supervision extends LitElement {
   private renderUnusedControlList(): TemplateResult {
     return html`<oscd-filtered-list
       id="unusedControls"
-      activatable
       @selected=${(ev: SingleSelectedEvent) => {
         const selectedListItem = (<ListItemBase>(
           (<OscdFilteredList>ev.target).selected
@@ -973,14 +938,13 @@ export default class Supervision extends LitElement {
             this.selectedSupervision,
             this.newSupervision
           );
-
-          this.selectedControl = null;
-          this.selectedSupervision = null;
-          this.newSupervision = false;
         }
 
+        this.selectedControl = null;
+        this.selectedSupervision = null;
+        this.newSupervision = false;
+
         this.clearListSelections();
-        this.selectedControl = selectedControl;
       }}
     >
       ${this.renderUnusedControls()}
@@ -1005,6 +969,9 @@ export default class Supervision extends LitElement {
       </div>
       <mwc-list
         id="unusedSupervisions"
+        activatable
+        ?noninteractive=${this.supervisedControlBlockIds.length ===
+        this.connectedControlBlockIds.length}
         @selected=${(ev: SingleSelectedEvent) => {
           const selectedListItem = (<ListItemBase>(
             (<OscdFilteredList>ev.target).selected
@@ -1020,22 +987,8 @@ export default class Supervision extends LitElement {
           }
 
           this.selectedSupervision = selectedSupervision;
-          if (
-            this.selectedControl &&
-            (this.selectedSupervision || this.newSupervision)
-          ) {
-            this.createSupervision(
-              this.selectedControl,
-              this.selectedSupervision,
-              this.newSupervision
-            );
-          }
-
           this.selectedControl = null;
-          this.selectedSupervision = null;
           this.newSupervision = false;
-
-          this.clearListSelections();
         }}
       >
         ${this.renderUnusedSupervisionLNs(false, true)}
@@ -1044,9 +997,6 @@ export default class Supervision extends LitElement {
   }
 
   renderUnusedControlBlocksAndSupervisions(): TemplateResult {
-    const controlName = this.selectedControl?.getAttribute('name');
-    const iedName = this.selectedControl?.closest('IED')!.getAttribute('name');
-
     const maxSupervisionLNs = this.selectedIed
       ? maxSupervisions(this.selectedIed, controlTag[this.controlType])
       : 0;
@@ -1058,26 +1008,31 @@ export default class Supervision extends LitElement {
     const availableSupervisionLNs =
       maxSupervisionLNs - instantiatedSupervisionLNs;
 
+    let titleText;
+
+    if (this.selectedSupervision) {
+      titleText = supervisionPath(this.selectedSupervision) ?? '';
+    }
+
+    if (this.newSupervision) {
+      titleText = msg('New Supervision LN');
+    }
+
     return html`<section class="unused">
       <div class="column-unused">
-        ${this.selectedControl
-          ? html`<h2 class="selected title-element text">
-              ${iedName} > ${controlName}
-            </h2>`
-          : html`<h2>
-              ${this.controlType === 'GOOSE'
-                ? msg(`Select GOOSE Control Block`)
-                : msg(`Select SV Control Block`)}
-            </h2>`}
-        ${this.renderUnusedControlList()}
-      </div>
-      <hr />
-      <div class="column-unused">
         <h2>
-          <span class="${this.selectedControl ? 'selected' : ''}"
-            >${this.selectedControl
-              ? msg('Select Supervision Logical Node')
-              : msg('Available Supervision Logical Nodes')}
+          <span
+            class="${this.selectedSupervision || this.newSupervision
+              ? 'selected'
+              : ''}"
+          >
+            ${this.selectedSupervision || this.newSupervision
+              ? titleText
+              : msg(
+                  str`Available ${
+                    this.controlType === 'GOOSE' ? 'LGOS' : 'LSVS'
+                  } Supervisions`
+                )}
           </span>
           <mwc-icon-button
             id="createNewLN"
@@ -1108,7 +1063,41 @@ export default class Supervision extends LitElement {
           ${this.renderDeleteIcons(false, true, true)}
         </div>
       </div>
+      <hr />
+      <div class="column-unused">
+        <h2
+          class="${this.selectedSupervision
+            ? 'selected title-element text'
+            : ''}"
+        >
+          ${this.controlType === 'GOOSE'
+            ? msg(`Select GOOSE Control Block`)
+            : msg(`Select SV Control Block`)}
+        </h2>
+        ${this.renderUnusedControlList()}
+      </div>
     </section>`;
+  }
+
+  renderControlSelector(): TemplateResult {
+    return html`<mwc-icon-button-toggle
+      id="controlType"
+      label="${msg('Change between GOOSE and Sampled Value publishers')}"
+      @click=${() => {
+        if (this.controlType === 'GOOSE') {
+          this.controlType = 'SMV';
+        } else {
+          this.controlType = 'GOOSE';
+        }
+
+        this.selectedControl = null;
+        this.selectedSupervision = null;
+
+        this.clearListSelections();
+        this.resetSearchFilters();
+      }}
+      >${gooseActionIcon}${smvActionIcon}
+    </mwc-icon-button-toggle>`;
   }
 
   protected render(): TemplateResult {
@@ -1116,20 +1105,45 @@ export default class Supervision extends LitElement {
 
     if (this.iedList.length === 0) return html`<h1>>No IEDs present</h1>`;
 
+    const usedSupLNs = this.getSupLNsWithCBs(true, false).length;
+    const totalSupLNs = this.getSupLNsWithCBs(true, true).length;
+    const percentUsed = (usedSupLNs / totalSupLNs) * 100;
+
     return html`<div id="container">
       <div id="controlSection">
         ${this.renderIedSelector()} ${this.renderInfo()}
       </div>
       <div id="scrollableArea">
         <section>
-          ${this.renderControlSelector()}
-          <div class="column remover"></div>
-          <h2 class="column">Supervision Logical Nodes</h2>
+          <div id="controlSelector" class="column">
+            ${this.renderControlSelector()}
+            <h2>
+              ${msg(
+                str`${
+                  this.controlType === 'GOOSE' ? 'LGOS' : 'LSVS'
+                } Supervisions`
+              )}
+            </h2>
+            <div class="side-icons">
+              <div class="usage-group">
+                <mwc-icon>${getUsageIcon(percentUsed)}</mwc-icon>
+                <span class="usage"
+                  >${usedSupLNs} / ${totalSupLNs} ${msg('used')}</span
+                >
+              </div>
+            </div>
+          </div>
           <div class="column deleter"></div>
-          ${this.renderUsedControls()}
-          ${this.renderUsedSupervisionRemovalIcons()}
+          <div class="column remover"></div>
+          <h2 id="cbTitle" class="column">
+            ${this.controlType === 'GOOSE'
+              ? msg('GOOSE Control Blocks')
+              : msg('SV Control Blocks')}
+          </h2>
           ${this.renderUsedSupervisionLNs(true, false)}
           ${this.renderDeleteIcons(true, false)}
+          ${this.renderUsedSupervisionRemovalIcons()}
+          ${this.renderUsedControls()}
         </section>
         ${this.selectedIed &&
         isSupervisionModificationAllowed(
@@ -1199,6 +1213,11 @@ export default class Supervision extends LitElement {
       line-height: 48px;
       padding-left: 0.3em;
       transition: background-color 150ms linear;
+    }
+
+    .usage {
+      font-size: 16px;
+      display: inline-flex;
     }
 
     h2.selected,
@@ -1305,7 +1324,7 @@ export default class Supervision extends LitElement {
     .usage-group {
       display: flex;
       align-items: center;
-      padding-right: 10px;
+      padding-left: 10px;
     }
 
     .side-icons {
