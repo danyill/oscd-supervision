@@ -542,7 +542,7 @@ export default class Supervision extends LitElement {
         class="sup-ln mitem"
         graphic="icon"
         data-supervision="NEW"
-        value="New Supervision LN"
+        value="${msg('New Supervision LN')}"
         ?noninteractive=${availableSupervisionLNs === 0 ||
         this.supervisedControlBlockIds.length ===
           this.connectedControlBlockIds.length}
@@ -1018,6 +1018,8 @@ export default class Supervision extends LitElement {
       titleText = msg('New Supervision LN');
     }
 
+    const supervisionType = this.controlType === 'GOOSE' ? 'LGOS' : 'LSVS';
+
     return html`<section class="unused">
       <div class="column-unused">
         <h2>
@@ -1037,14 +1039,14 @@ export default class Supervision extends LitElement {
           <mwc-icon-button
             id="createNewLN"
             class="greyOutDisabled"
-            title="${msg('New Supervision LN')}"
+            title="${msg(str`
+              'Create New ${supervisionType} Supervision`)} - ${availableSupervisionLNs} ${msg(
+              'available'
+            )}"
             icon="heart_plus"
             ?disabled=${availableSupervisionLNs <= 0}
             @click=${() => {
               if (this.selectedIed) {
-                const supervisionType =
-                  this.controlType === 'GOOSE' ? 'LGOS' : 'LSVS';
-
                 const edit = createNewSupervisionLnEdit(
                   this.selectedIed,
                   supervisionType
