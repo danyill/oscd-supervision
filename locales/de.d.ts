@@ -13,6 +13,7 @@ export declare const templates: {
     s69d78be01e752f2d: string;
     s5d929ff1619ac0c9: string;
     sf2add3f33cacfd26: import("@lit/localize").StrResult;
+    s719c8f1a9d5d70e9: import("@lit/localize").StrResult;
     sa9b15d243beb72ca: string;
     s5de80cd77362dcba: string;
     s41076cfdf7ca3bbf: import("@lit/localize").StrResult;
