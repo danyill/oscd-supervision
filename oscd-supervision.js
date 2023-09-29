@@ -90,6 +90,24 @@ var t$2;const i$4=window,s$2=i$4.trustedTypes,e$7=s$2?s$2.createPolicy("lit-html
  * Copyright 2021 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
+/**
+ * Tag that allows expressions to be used in localized non-HTML template
+ * strings.
+ *
+ * Example: msg(str`Hello ${this.user}!`);
+ *
+ * The Lit html tag can also be used for this purpose, but HTML will need to be
+ * escaped, and there is a small overhead for HTML parsing.
+ *
+ * Untagged template strings with expressions aren't supported by lit-localize
+ * because they don't allow for values to be captured at runtime.
+ */
+const _str = (strings, ...values) => ({
+    strTag: true,
+    strings,
+    values,
+});
+const str = _str;
 const isStrTagged = (val) => typeof val !== 'string' && 'strTag' in val;
 /**
  * Render the result of a `str` tagged template to a string. Note we don't need
@@ -9317,6 +9335,7 @@ function isSupervisionModificationAllowed(ied, supervisionType) {
     // definition missing
     return false;
 }
+// NOTE: Have removed the LN0 selector here.
 /**
  * Return Val elements within an LGOS/LSVS instance for a particular IED and control block type.
  * @param ied - IED SCL element.
@@ -9326,7 +9345,7 @@ function isSupervisionModificationAllowed(ied, supervisionType) {
 function getSupervisionCbRefs(ied, cbTagName) {
     const supervisionType = cbTagName === 'GSEControl' ? 'LGOS' : 'LSVS';
     const supervisionName = supervisionType === 'LGOS' ? 'GoCBRef' : 'SvCBRef';
-    const selectorString = `LN[lnClass="${supervisionType}"]>DOI[name="${supervisionName}"]>DAI[name="setSrcRef"]>Val,LN0[lnClass="${supervisionType}"]>DOI[name="${supervisionName}"]>DAI[name="setSrcRef"]>Val`;
+    const selectorString = `LN[lnClass="${supervisionType}"]>DOI[name="${supervisionName}"]>DAI[name="setSrcRef"]>Val`;
     return Array.from(ied.querySelectorAll(selectorString));
 }
 /**
@@ -11808,6 +11827,8 @@ class Supervision extends s$1 {
         class="mitem"
         graphic="icon"
         ?hasMeta=${invalidControlBlock}
+        ?noninteractive=${this.supervisedControlBlockIds.length ===
+            this.connectedControlBlockIds.length}
         data-supervision="${identity(lN)}"
         value="${identity(lN)}"
       >
@@ -11833,7 +11854,7 @@ class Supervision extends s$1 {
     `;
     }
     // eslint-disable-next-line class-methods-use-this
-    renderSupervisionNode(lN, interactive) {
+    renderSupervisionListItem(lN, interactive) {
         const description = getDescriptionAttribute(lN);
         return x `
       <mwc-list-item
@@ -11919,9 +11940,17 @@ class Supervision extends s$1 {
         graphic="icon"
         data-supervision="NEW"
         value="New Supervision LN"
-        ?noninteractive=${availableSupervisionLNs <= 0}
+        ?noninteractive=${availableSupervisionLNs === 0 ||
+            this.supervisedControlBlockIds.length ===
+                this.connectedControlBlockIds.length}
       >
-        <span>${msg('New Supervision LN')}</span>
+        <span
+          >${msg('New Supervision LN')}
+          ${instantiatedSupervisionLNs > 0
+            ? x `— ${availableSupervisionLNs} ${msg('available')}</span>
+                </div>`
+            : A}
+        </span>
         <mwc-icon slot="graphic">heart_plus</mwc-icon>
       </mwc-list-item>`;
     }
@@ -11967,6 +11996,7 @@ class Supervision extends s$1 {
                 this.dispatchEvent(newEditEvent(removeEdit));
                 this.updateSupervisedControlBlocks();
             }
+            this.clearListSelections();
         }}
                 >${lN === firstSupervision ? 'info' : 'delete'}</mwc-icon
               >
@@ -11981,14 +12011,15 @@ class Supervision extends s$1 {
     renderUsedSupervisionLNs(onlyUsed = false, onlyUnused = false) {
         if (!this.selectedIed)
             return x ``;
-        return x `<mwc-list class="column mlist">
-      ${this.getSupervisionLNs(this.controlType)
-            .filter(lN => {
+        const usedSupervisions = this.getSupervisionLNs(this.controlType).filter(lN => {
             const cbRef = getSupervisionControlBlockRef(lN);
             const cbRefUsed = this.allControlBlockIds.includes(cbRef ?? 'Unknown Control');
             return (cbRefUsed && onlyUsed) || (!cbRefUsed && onlyUnused);
-        })
-            .map(lN => x `${this.renderSupervisionNode(lN, onlyUnused)}`)}
+        });
+        if (usedSupervisions.length === 0)
+            return x `<h3>${msg('No supervision nodes used')}</h3>`;
+        return x `<mwc-list class="column mlist">
+      ${usedSupervisions.map(lN => x `${this.renderSupervisionListItem(lN, onlyUnused)}`)}
     </mwc-list>`;
     }
     renderUsedSupervisionRemovalIcons() {
@@ -12041,7 +12072,7 @@ class Supervision extends s$1 {
             secondLineDesc += ` - Dataset: ${datasetName}, Id: ${controlId})`;
         }
         return x `<mwc-list-item
-      ?noninteractive=${!unused}
+      ?noninteractive=${!unused || !this.selectedSupervision}
       graphic="icon"
       ?twoline=${!!pathDescription || !!datasetName}
       data-control="${identity(controlElement)}"
@@ -12075,56 +12106,8 @@ class Supervision extends s$1 {
         })}</mwc-list
     >`;
     }
-    renderControlSelector() {
-        return x `<div id="controlSelector" class="column">
-      <mwc-icon-button-toggle
-        id="controlType"
-        label="${msg('Change between GOOSE and Sampled Value publishers')}"
-        @click=${() => {
-            if (this.controlType === 'GOOSE') {
-                this.controlType = 'SMV';
-            }
-            else {
-                this.controlType = 'GOOSE';
-            }
-            this.selectedControl = null;
-            this.selectedSupervision = null;
-            this.clearListSelections();
-            this.resetSearchFilters();
-        }}
-        >${gooseActionIcon}${smvActionIcon}
-      </mwc-icon-button-toggle>
-      <h2 id="cbTitle">
-        ${this.controlType === 'GOOSE'
-            ? msg('GOOSE Control Blocks')
-            : msg('SV Control Blocks')}
-      </h2>
-    </div>`;
-    }
     renderInfo() {
-        const instantiatedSupervisionLNs = this.getSupervisionLNs(this.controlType).length;
-        const maxSupervisionLNs = this.selectedIed
-            ? maxSupervisions(this.selectedIed, controlTag[this.controlType])
-            : 0;
-        const percentInstantiated = (instantiatedSupervisionLNs / maxSupervisionLNs) * 100;
-        const usedSupLNs = this.getSupLNsWithCBs(true, false).length;
-        const totalSupLNs = this.getSupLNsWithCBs(true, true).length;
-        const percentUsed = (usedSupLNs / totalSupLNs) * 100;
         return x `<div class="side-icons">
-      ${instantiatedSupervisionLNs > 0
-            ? x `<div class="usage-group">
-            <mwc-icon>${getUsageIcon(percentInstantiated)}</mwc-icon>
-            <span class="usage"
-              >${instantiatedSupervisionLNs}
-              ${maxSupervisionLNs !== 0 ? `/ ${maxSupervisionLNs}` : ''}
-              ${msg('instantiated')}</span
-            >
-          </div>`
-            : A}
-      <div class="usage-group">
-        <mwc-icon>${getUsageIcon(percentUsed)}</mwc-icon>
-        <span class="usage">${usedSupLNs} / ${totalSupLNs} ${msg('used')}</span>
-      </div>
       ${this.selectedIed &&
             !isSupervisionModificationAllowed(this.selectedIed, supervisionLnType[this.controlType])
             ? x `<mwc-icon-button
@@ -12169,7 +12152,7 @@ class Supervision extends s$1 {
       <h2>
         ${this.selectedIed
             ? getNameAttribute(this.selectedIed)
-            : 'No IED Selected'}
+            : msg('No IED Selected')}
         (${this.selectedIed?.getAttribute('type') ?? 'Unknown Type'})
       </h2>
     </div>`;
@@ -12223,7 +12206,6 @@ class Supervision extends s$1 {
     renderUnusedControlList() {
         return x `<oscd-filtered-list
       id="unusedControls"
-      activatable
       @selected=${(ev) => {
             const selectedListItem = (ev.target.selected);
             if (!selectedListItem)
@@ -12234,12 +12216,11 @@ class Supervision extends s$1 {
             if (this.selectedControl &&
                 (this.selectedSupervision || this.newSupervision)) {
                 this.createSupervision(this.selectedControl, this.selectedSupervision, this.newSupervision);
-                this.selectedControl = null;
-                this.selectedSupervision = null;
-                this.newSupervision = false;
             }
+            this.selectedControl = null;
+            this.selectedSupervision = null;
+            this.newSupervision = false;
             this.clearListSelections();
-            this.selectedControl = selectedControl;
         }}
     >
       ${this.renderUnusedControls()}
@@ -12261,6 +12242,9 @@ class Supervision extends s$1 {
       </div>
       <mwc-list
         id="unusedSupervisions"
+        activatable
+        ?noninteractive=${this.supervisedControlBlockIds.length ===
+            this.connectedControlBlockIds.length}
         @selected=${(ev) => {
             const selectedListItem = (ev.target.selected);
             if (!selectedListItem)
@@ -12271,14 +12255,8 @@ class Supervision extends s$1 {
                 this.newSupervision = true;
             }
             this.selectedSupervision = selectedSupervision;
-            if (this.selectedControl &&
-                (this.selectedSupervision || this.newSupervision)) {
-                this.createSupervision(this.selectedControl, this.selectedSupervision, this.newSupervision);
-            }
             this.selectedControl = null;
-            this.selectedSupervision = null;
             this.newSupervision = false;
-            this.clearListSelections();
         }}
       >
         ${this.renderUnusedSupervisionLNs(false, true)}
@@ -12286,33 +12264,29 @@ class Supervision extends s$1 {
     </div>`;
     }
     renderUnusedControlBlocksAndSupervisions() {
-        const controlName = this.selectedControl?.getAttribute('name');
-        const iedName = this.selectedControl?.closest('IED').getAttribute('name');
         const maxSupervisionLNs = this.selectedIed
             ? maxSupervisions(this.selectedIed, controlTag[this.controlType])
             : 0;
         const instantiatedSupervisionLNs = this.getSupervisionLNs(this.controlType).length;
         const availableSupervisionLNs = maxSupervisionLNs - instantiatedSupervisionLNs;
+        let titleText;
+        if (this.selectedSupervision) {
+            titleText = supervisionPath(this.selectedSupervision) ?? '';
+        }
+        if (this.newSupervision) {
+            titleText = msg('New Supervision LN');
+        }
         return x `<section class="unused">
       <div class="column-unused">
-        ${this.selectedControl
-            ? x `<h2 class="selected title-element text">
-              ${iedName} > ${controlName}
-            </h2>`
-            : x `<h2>
-              ${this.controlType === 'GOOSE'
-                ? msg(`Select GOOSE Control Block`)
-                : msg(`Select SV Control Block`)}
-            </h2>`}
-        ${this.renderUnusedControlList()}
-      </div>
-      <hr />
-      <div class="column-unused">
         <h2>
-          <span class="${this.selectedControl ? 'selected' : ''}"
-            >${this.selectedControl
-            ? msg('Select Supervision Logical Node')
-            : msg('Available Supervision Logical Nodes')}
+          <span
+            class="${this.selectedSupervision || this.newSupervision
+            ? 'selected'
+            : ''}"
+          >
+            ${this.selectedSupervision || this.newSupervision
+            ? titleText
+            : msg(str `Available ${this.controlType === 'GOOSE' ? 'LGOS' : 'LSVS'} Supervisions`)}
           </span>
           <mwc-icon-button
             id="createNewLN"
@@ -12337,27 +12311,79 @@ class Supervision extends s$1 {
           ${this.renderDeleteIcons(false, true, true)}
         </div>
       </div>
+      <hr />
+      <div class="column-unused">
+        <h2
+          class="${this.selectedSupervision
+            ? 'selected title-element text'
+            : ''}"
+        >
+          ${this.controlType === 'GOOSE'
+            ? msg(`Select GOOSE Control Block`)
+            : msg(`Select SV Control Block`)}
+        </h2>
+        ${this.renderUnusedControlList()}
+      </div>
     </section>`;
+    }
+    renderControlSelector() {
+        return x `<mwc-icon-button-toggle
+      id="controlType"
+      label="${msg('Change between GOOSE and Sampled Value publishers')}"
+      @click=${() => {
+            if (this.controlType === 'GOOSE') {
+                this.controlType = 'SMV';
+            }
+            else {
+                this.controlType = 'GOOSE';
+            }
+            this.selectedControl = null;
+            this.selectedSupervision = null;
+            this.clearListSelections();
+            this.resetSearchFilters();
+        }}
+      >${gooseActionIcon}${smvActionIcon}
+    </mwc-icon-button-toggle>`;
     }
     render() {
         if (!this.doc)
             return x ``;
         if (this.iedList.length === 0)
             return x `<h1>>No IEDs present</h1>`;
+        const usedSupLNs = this.getSupLNsWithCBs(true, false).length;
+        const totalSupLNs = this.getSupLNsWithCBs(true, true).length;
+        const percentUsed = (usedSupLNs / totalSupLNs) * 100;
         return x `<div id="container">
       <div id="controlSection">
         ${this.renderIedSelector()} ${this.renderInfo()}
       </div>
       <div id="scrollableArea">
         <section>
-          ${this.renderControlSelector()}
-          <div class="column remover"></div>
-          <h2 class="column">Supervision Logical Nodes</h2>
+          <div id="controlSelector" class="column">
+            ${this.renderControlSelector()}
+            <h2>
+              ${msg(str `${this.controlType === 'GOOSE' ? 'LGOS' : 'LSVS'} Supervisions`)}
+            </h2>
+            <div class="side-icons">
+              <div class="usage-group">
+                <mwc-icon>${getUsageIcon(percentUsed)}</mwc-icon>
+                <span class="usage"
+                  >${usedSupLNs} / ${totalSupLNs} ${msg('used')}</span
+                >
+              </div>
+            </div>
+          </div>
           <div class="column deleter"></div>
-          ${this.renderUsedControls()}
-          ${this.renderUsedSupervisionRemovalIcons()}
+          <div class="column remover"></div>
+          <h2 id="cbTitle" class="column">
+            ${this.controlType === 'GOOSE'
+            ? msg('GOOSE Control Blocks')
+            : msg('SV Control Blocks')}
+          </h2>
           ${this.renderUsedSupervisionLNs(true, false)}
           ${this.renderDeleteIcons(true, false)}
+          ${this.renderUsedSupervisionRemovalIcons()}
+          ${this.renderUsedControls()}
         </section>
         ${this.selectedIed &&
             isSupervisionModificationAllowed(this.selectedIed, supervisionLnType[this.controlType])
@@ -12424,6 +12450,11 @@ Supervision.styles = i$5 `
       line-height: 48px;
       padding-left: 0.3em;
       transition: background-color 150ms linear;
+    }
+
+    .usage {
+      font-size: 16px;
+      display: inline-flex;
     }
 
     h2.selected,
@@ -12530,7 +12561,7 @@ Supervision.styles = i$5 `
     .usage-group {
       display: flex;
       align-items: center;
-      padding-right: 10px;
+      padding-left: 10px;
     }
 
     .side-icons {
@@ -12630,6 +12661,12 @@ __decorate([
 __decorate([
     t$1()
 ], Supervision.prototype, "selectedControl", void 0);
+__decorate([
+    t$1()
+], Supervision.prototype, "selectedSupervision", void 0);
+__decorate([
+    t$1()
+], Supervision.prototype, "newSupervision", void 0);
 __decorate([
     i$2('#unusedControls')
 ], Supervision.prototype, "selectedUnusedControlsListUI", void 0);

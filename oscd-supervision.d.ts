@@ -44,7 +44,7 @@ export default class Supervision extends LitElement {
     protected firstUpdated(): void;
     protected updated(_changedProperties: PropertyValues): void;
     renderUnusedSupervisionNode(lN: Element): TemplateResult;
-    renderSupervisionNode(lN: Element, interactive: boolean): TemplateResult;
+    renderSupervisionListItem(lN: Element, interactive: boolean): TemplateResult;
     private getSupervisionLNs;
     private getControlElements;
     clearListSelections(): void;
@@ -56,7 +56,6 @@ export default class Supervision extends LitElement {
     private renderControl;
     private renderUnusedControls;
     private renderUsedControls;
-    private renderControlSelector;
     private renderInfo;
     private renderIedSelector;
     private resetSearchFilters;
@@ -65,6 +64,7 @@ export default class Supervision extends LitElement {
     private renderUnusedControlList;
     private renderUnusedSupervisionList;
     renderUnusedControlBlocksAndSupervisions(): TemplateResult;
+    renderControlSelector(): TemplateResult;
     protected render(): TemplateResult;
     static styles: import("lit").CSSResult;
 }
