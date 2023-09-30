@@ -12072,7 +12072,9 @@ class Supervision extends s$1 {
             secondLineDesc += ` - Dataset: ${datasetName}, Id: ${controlId})`;
         }
         return x `<mwc-list-item
-      ?noninteractive=${!unused || !this.selectedSupervision}
+      ?noninteractive=${!unused ||
+            !this.selectedSupervision ||
+            !this.newSupervision}
       graphic="icon"
       ?twoline=${!!pathDescription || !!datasetName}
       data-control="${identity(controlElement)}"
