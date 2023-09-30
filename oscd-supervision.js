@@ -11927,6 +11927,7 @@ class Supervision extends s$1 {
             : 0;
         const instantiatedSupervisionLNs = this.getSupervisionLNs(this.controlType).length;
         const availableSupervisionLNs = maxSupervisionLNs - instantiatedSupervisionLNs;
+        const supervisionType = this.controlType === 'GOOSE' ? 'LGOS' : 'LSVS';
         return x `${this.getSupLNsWithCBs(used, unused)
             .filter(supervision => {
             const supervisionSearchText = `${identity(supervision)} ${supervision.getAttribute('desc')}`;
@@ -11939,13 +11940,13 @@ class Supervision extends s$1 {
         class="sup-ln mitem"
         graphic="icon"
         data-supervision="NEW"
-        value="${msg('New Supervision LN')}"
+        value="${msg('New')} ${supervisionType} ${msg('Supervision')}"
         ?noninteractive=${availableSupervisionLNs === 0 ||
             this.supervisedControlBlockIds.length ===
                 this.connectedControlBlockIds.length}
       >
         <span
-          >${msg('New Supervision LN')}
+          >${msg('New')} ${supervisionType} ${msg('Supervision')}
           ${instantiatedSupervisionLNs > 0
             ? x `— ${availableSupervisionLNs} ${msg('available')}</span>
                 </div>`
