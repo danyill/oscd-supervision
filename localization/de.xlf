@@ -97,6 +97,10 @@
 <trans-unit id="s41076cfdf7ca3bbf">
   <source><x id="0" equiv-text="${this.controlType === 'GOOSE' ? 'LGOS' : 'LSVS'}"/> Supervisions</source>
 </trans-unit>
+<trans-unit id="s719c8f1a9d5d70e9">
+  <source>
+              'Create New <x id="0" equiv-text="${supervisionType}"/> Supervision</source>
+</trans-unit>
     </body>
   </file>
 </xliff>

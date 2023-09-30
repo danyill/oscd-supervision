@@ -730,7 +730,9 @@ export default class Supervision extends LitElement {
     }
 
     return html`<mwc-list-item
-      ?noninteractive=${!unused || !this.selectedSupervision}
+      ?noninteractive=${!unused ||
+      !this.selectedSupervision ||
+      !this.newSupervision}
       graphic="icon"
       ?twoline=${!!pathDescription || !!datasetName}
       data-control="${identity(controlElement)}"
