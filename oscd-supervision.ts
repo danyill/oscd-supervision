@@ -525,6 +525,8 @@ export default class Supervision extends LitElement {
     const availableSupervisionLNs =
       maxSupervisionLNs - instantiatedSupervisionLNs;
 
+    const supervisionType = this.controlType === 'GOOSE' ? 'LGOS' : 'LSVS';
+
     return html`${this.getSupLNsWithCBs(used, unused)
         .filter(supervision => {
           const supervisionSearchText = `${identity(
@@ -542,13 +544,13 @@ export default class Supervision extends LitElement {
         class="sup-ln mitem"
         graphic="icon"
         data-supervision="NEW"
-        value="${msg('New Supervision LN')}"
+        value="${msg('New')} ${supervisionType} ${msg('Supervision')}"
         ?noninteractive=${availableSupervisionLNs === 0 ||
         this.supervisedControlBlockIds.length ===
           this.connectedControlBlockIds.length}
       >
         <span
-          >${msg('New Supervision LN')}
+          >${msg('New')} ${supervisionType} ${msg('Supervision')}
           ${instantiatedSupervisionLNs > 0
             ? html`— ${availableSupervisionLNs} ${msg('available')}</span>
                 </div>`
