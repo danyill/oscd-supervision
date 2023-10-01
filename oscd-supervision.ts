@@ -732,8 +732,8 @@ export default class Supervision extends LitElement {
     }
 
     return html`<mwc-list-item
-      ?noninteractive=${!unused ||
-      !this.selectedSupervision ||
+      ?noninteractive=${!unused &&
+      !this.selectedSupervision &&
       !this.newSupervision}
       graphic="icon"
       ?twoline=${!!pathDescription || !!datasetName}
@@ -785,6 +785,8 @@ export default class Supervision extends LitElement {
   }
 
   private renderInfo(): TemplateResult {
+    const supervisionType = this.controlType === 'GOOSE' ? 'LGOS' : 'LSVS';
+
     return html`<div class="side-icons">
       ${this.selectedIed &&
       !isSupervisionModificationAllowed(
@@ -792,9 +794,8 @@ export default class Supervision extends LitElement {
         supervisionLnType[this.controlType]
       )
         ? html`<mwc-icon-button
-            title="${msg(
-              'This IED does not support supervision modification. Only viewing supervisions is supported.'
-            )}"
+            title="${msg(str`
+              This IED does not support ${supervisionType} supervision modification.`)}"
             icon="warning"
           ></mwc-icon-button>`
         : nothing}
@@ -992,7 +993,6 @@ export default class Supervision extends LitElement {
 
           this.selectedSupervision = selectedSupervision;
           this.selectedControl = null;
-          this.newSupervision = false;
         }}
       >
         ${this.renderUnusedSupervisionLNs(false, true)}
@@ -1044,7 +1044,7 @@ export default class Supervision extends LitElement {
             id="createNewLN"
             class="greyOutDisabled"
             title="${msg(str`
-              'Create New ${supervisionType} Supervision`)} - ${availableSupervisionLNs} ${msg(
+              Create New ${supervisionType} Supervision`)} - ${availableSupervisionLNs} ${msg(
               'available'
             )}"
             icon="heart_plus"
