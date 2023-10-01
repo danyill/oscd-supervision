@@ -426,6 +426,7 @@ export default class Supervision extends LitElement {
         const iedName = getNameAttribute(this.iedList[0]);
         if (iedName) {
           this.selectedIEDs = [iedName];
+          this.updateCBRefInfo(this.selectedIed, this.controlType);
         }
       }
     }
