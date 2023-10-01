@@ -75,8 +75,7 @@ export function findControlBlocks(
 
   if (controlBlockFromSrc) return controlBlockFromSrc;
 
-  // Ed 1 this is more complicated as control blocks not explicitly
-  console.log('Ed 1');
+  // Ed 1 this is more complicated as control blocks not explicitly identified...
 
   const fcdas = findFCDAs(extRef);
   const cbTags =
