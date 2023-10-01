@@ -12049,7 +12049,7 @@ class Supervision extends s$1 {
             }
             this.clearListSelections();
         }}
-                >${lN === firstSupervision ? 'info' : 'delete'}</mwc-icon
+                >${lN === firstSupervision ? 'block' : 'delete'}</mwc-icon
               >
             </mwc-list-item>
           `)}
