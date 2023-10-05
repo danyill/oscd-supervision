@@ -1166,7 +1166,7 @@ export default class Supervision extends LitElement {
   protected render(): TemplateResult {
     if (!this.doc) return html``;
 
-    if (this.iedList.length === 0) return html`<h1>>No IEDs present</h1>`;
+    if (this.iedList.length === 0) return html`<h1>No IEDs present</h1>`;
 
     const usedSupLNs = this.getSelectedIedSupLNs(true, false).length;
     const totalSupLNs = this.getSelectedIedSupLNs(true, true).length;
