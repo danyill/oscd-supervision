@@ -1308,6 +1308,7 @@ export default class Supervision extends LitElement {
       flex-wrap: wrap;
       column-gap: 20px;
       padding: 10px 20px 0px 20px;
+      margin: 10px;
     }
 
     section.unused {
