@@ -688,29 +688,17 @@ export default class Supervision extends LitElement {
     </mwc-list>`;
   }
 
-  private renderUsedSupervisionLNs(
-    onlyUsed = false,
-    onlyUnused = false
-  ): TemplateResult {
+  private renderUsedSupervisionLNs(): TemplateResult {
     if (!this.selectedIed) return html``;
 
-    const usedSupervisions = getSupervisionLNs(
-      this.selectedIed,
-      this.controlType
-    ).filter(lN => {
-      const cbRef = getSupervisionCBRef(lN);
-      const cbRefUsed = this.otherIedsCBRefs.includes(
-        cbRef ?? 'Unknown Control'
-      );
-      return (cbRefUsed && onlyUsed) || (!cbRefUsed && onlyUnused);
-    });
+    const usedSupervisions = this.getSelectedIedSupLNs(true, false);
 
     if (usedSupervisions.length === 0)
       return html`<h3>${msg('No supervision nodes used')}</h3>`;
 
     return html`<mwc-list class="column mlist">
       ${usedSupervisions.map(
-        lN => html`${this.renderSupervisionListItem(lN, onlyUnused)}`
+        lN => html`${this.renderSupervisionListItem(lN, false)}`
       )}
     </mwc-list>`;
   }
@@ -838,7 +826,17 @@ export default class Supervision extends LitElement {
 
         return html`${controlElement
           ? this.renderControl(controlElement)
-          : nothing}`;
+          : html`<mwc-list-item
+              noninteractive
+              graphic="icon"
+              data-control="${identity(controlElement)}"
+              value="Control not found"
+            >
+              <span>Control not found</span>
+              <mwc-icon slot="graphic"
+                >${this.controlType === 'GOOSE' ? gooseIcon : smvIcon}</mwc-icon
+              >
+            </mwc-list-item>`}`;
       })}</mwc-list
     >`;
   }
@@ -1203,7 +1201,7 @@ export default class Supervision extends LitElement {
               ? msg('GOOSE Control Blocks')
               : msg('SV Control Blocks')}
           </h2>
-          ${this.renderUsedSupervisionLNs(true, false)}
+          ${this.renderUsedSupervisionLNs()}
           ${this.renderDeleteIcons(true, false)}
           ${this.renderUsedSupervisionRemovalIcons()}
           ${this.renderUsedControls()}
