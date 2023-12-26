@@ -8,6 +8,7 @@ import {
 } from 'lit';
 import { property, query, state } from 'lit/decorators.js';
 
+import { identity, find } from '@openenergytools/scl-lib';
 import { Edit, newEditEvent, Remove } from '@openscd/open-scd-core';
 
 import '@material/mwc-button';
@@ -42,9 +43,6 @@ import {
   gooseIcon,
   smvIcon,
 } from './foundation/icons.js';
-import { identity } from './foundation/identities/identity.js';
-import { selector } from './foundation/identities/selector.js';
-import { styles } from './foundation/styles/styles.js';
 
 import {
   controlBlockReference,
@@ -984,12 +982,11 @@ export default class Supervision extends LitElement {
         ))!;
         if (!selectedListItem) return;
         const { control } = selectedListItem.dataset;
-        const selectedControl = <Element>(
-          this.doc.querySelector(
-            selector(controlTag[this.controlType], control ?? 'Unknown')
-          )
+        const selectedControl = find(
+          this.doc,
+          controlTag[this.controlType],
+          control ?? 'Unknown'
         );
-
         this.selectedControl = selectedControl;
 
         if (
@@ -1038,8 +1035,10 @@ export default class Supervision extends LitElement {
           if (!selectedListItem) return;
 
           const { supervision } = selectedListItem.dataset;
-          const selectedSupervision = <Element>(
-            this.doc.querySelector(selector('LN', supervision ?? 'Unknown'))
+          const selectedSupervision = find(
+            this.doc,
+            'LN',
+            supervision ?? 'Unknown'
           );
           if (supervision === 'NEW') {
             this.newSupervision = true;
@@ -1205,12 +1204,41 @@ export default class Supervision extends LitElement {
   }
 
   static styles = css`
-    ${styles}
-
     :host {
       --disabledVisibleElement: rgba(0, 0, 0, 0.38);
       --scrollbarBG: var(--mdc-theme-background, #cfcfcf00);
       --thumbBG: var(--mdc-button-disabled-ink-color, #996cd8cc);
+    }
+
+    :host(.moving) section {
+      opacity: 0.3;
+    }
+
+    section {
+      background-color: var(--mdc-theme-surface);
+      transition: all 200ms linear;
+      outline-color: var(--mdc-theme-primary);
+      outline-style: solid;
+      outline-width: 0px;
+      opacity: 1;
+    }
+    h1 > nav,
+    h2 > nav,
+    h3 > nav,
+    h1 > abbr > mwc-icon-button,
+    h2 > abbr > mwc-icon-button,
+    h3 > abbr > mwc-icon-button {
+      float: right;
+    }
+
+    abbr[title] {
+      border-bottom: none !important;
+      cursor: inherit !important;
+      text-decoration: none !important;
+    }
+
+    mwc-list-item[noninteractive] {
+      font-weight: 500;
     }
 
     #container {
