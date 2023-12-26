@@ -1,4 +1,4 @@
-import { OscdFilteredList } from '../../foundation/components/oscd-filtered-list.js';
+// import { OscdFilteredList } from '../../foundation/components/oscd-filtered-list-old.js';
 
 // getFcdaItem
 // getExtRefItem
@@ -23,24 +23,24 @@ export function midEl(element: Element): [number, number] {
   ];
 }
 
-export function getFcdaItem(
-  listElement: OscdFilteredList,
-  controlIdentity: string,
-  fcdaIdentity: string
-): HTMLElement | null {
-  return listElement.querySelector(
-    `mwc-list-item.fcda[data-control="${controlIdentity}"][data-fcda="${fcdaIdentity}"]`
-  );
-}
+// export function getFcdaItem(
+//   listElement: OscdFilteredList,
+//   controlIdentity: string,
+//   fcdaIdentity: string
+// ): HTMLElement | null {
+//   return listElement.querySelector(
+//     `mwc-list-item.fcda[data-control="${controlIdentity}"][data-fcda="${fcdaIdentity}"]`
+//   );
+// }
 
-export function getExtRefItem(
-  listElement: OscdFilteredList,
-  extRefId: string
-): HTMLElement | null {
-  return listElement.querySelector(
-    `mwc-list-item.extref[data-extref="${extRefId}"]`
-  );
-}
+// export function getExtRefItem(
+//   listElement: OscdFilteredList,
+//   extRefId: string
+// ): HTMLElement | null {
+//   return listElement.querySelector(
+//     `mwc-list-item.extref[data-extref="${extRefId}"]`
+//   );
+// }
 
 // export function getSubscribedExtRefsCount(
 //     listElement: ExtRefLaterBindingListSubscriber,

@@ -20,14 +20,15 @@ import '@material/mwc-list/mwc-radio-list-item';
 import '@material/mwc-icon-button-toggle';
 import '@material/mwc-icon';
 import '@material/mwc-icon-button';
+import '@openscd/oscd-filtered-list';
 
 import type { ListItem } from '@material/mwc-list/mwc-list-item';
 import type { List, SingleSelectedEvent } from '@material/mwc-list';
 import type { ListItemBase } from '@material/mwc-list/mwc-list-item-base.js';
 import type { TextField } from '@material/mwc-textfield';
+import type { OscdFilteredList } from '@openscd/oscd-filtered-list';
 
 import './foundation/components/oscd-filter-button.js';
-import './foundation/components/oscd-filtered-list.js';
 
 // import { canInstantiateSubscriptionSupervision } from '@openenergytools/scl-lib';
 
@@ -54,7 +55,6 @@ import {
   removeSubscriptionSupervision,
 } from './foundation/subscription/subscription.js';
 
-import type { OscdFilteredList } from './foundation/components/oscd-filtered-list.js';
 import type { SelectedItemsChangedEvent } from './foundation/components/oscd-filter-button.js';
 
 const controlTag = { GOOSE: 'GSEControl', SMV: 'SampledValueControl' };

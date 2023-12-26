@@ -39,6 +39,7 @@
     "@material/mwc-textfield": "^0.27.0",
     "@openenergytools/scl-lib": "^0.9.21",
     "@openscd/open-scd-core": "^0.0.2",
+    "@openscd/oscd-filtered-list": "^1.1.1",
     "@web/test-runner-commands": "^0.6.6",
     "lit": "^2.4.0"
   },

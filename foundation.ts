@@ -1,6 +1,5 @@
 import { css } from 'lit';
-import { identity } from './foundation/identities/identity.js';
-import { selector } from './foundation/identities/selector.js';
+import { identity, find } from '@openenergytools/scl-lib';
 
 export function updateElementReference(
   newDoc: XMLDocument,
@@ -9,7 +8,7 @@ export function updateElementReference(
   if (!oldElement || !oldElement.closest('SCL')) return null;
 
   const id = identity(oldElement);
-  const newElement = newDoc.querySelector(selector(oldElement.tagName, id));
+  const newElement = find(newDoc, oldElement.tagName, id);
 
   return newElement;
 }
