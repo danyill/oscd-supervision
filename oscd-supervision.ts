@@ -6,7 +6,6 @@ import {
   PropertyValues,
   TemplateResult,
 } from 'lit';
-import { msg, str } from '@lit/localize';
 import { property, query, state } from 'lit/decorators.js';
 
 import { Edit, newEditEvent, Remove } from '@openscd/open-scd-core';
@@ -591,15 +590,15 @@ export default class Supervision extends LitElement {
         class="sup-ln mitem"
         graphic="icon"
         data-supervision="NEW"
-        value="${msg('New')} ${supervisionType} ${msg('Supervision')}"
+        value="New ${supervisionType} 'Supervision'"
         ?noninteractive=${availableSupervisionLNs === 0 ||
         this.selectedIedSupervisedCBRefs.length ===
           this.selectedIedSubscribedCBRefs.length}
       >
         <span
-          >${msg('New')} ${supervisionType} ${msg('Supervision')}
+          >New ${supervisionType} Supervision
           ${instantiatedSupervisionLNs > 0
-            ? html`— ${availableSupervisionLNs} ${msg('available')}</span>
+            ? html`— ${availableSupervisionLNs} available</span>
                 </div>`
             : nothing}
         </span>
@@ -646,7 +645,7 @@ export default class Supervision extends LitElement {
               data-ln="${identity(lN)}"
               value="${identity(lN)}"
               title="${lN === firstSupervision
-                ? `${msg('First supervision logical node cannot be removed')}`
+                ? 'First supervision logical node cannot be removed'
                 : ''}"
             >
               <mwc-icon
@@ -654,7 +653,7 @@ export default class Supervision extends LitElement {
                   ? 'deletable'
                   : ''}"
                 slot="graphic"
-                label="${msg('Delete supervision logical node')}"
+                label="Delete supervision logical node"
                 data-lN="${identity(lN)}"
                 @click=${() => {
                   if (
@@ -694,7 +693,7 @@ export default class Supervision extends LitElement {
     const usedSupervisions = this.getSelectedIedSupLNs(true, false);
 
     if (usedSupervisions.length === 0)
-      return html`<h3>${msg('No supervision nodes used')}</h3>`;
+      return html`<h3>No supervision nodes used</h3>`;
 
     return html`<mwc-list class="column mlist">
       ${usedSupervisions.map(
@@ -743,7 +742,7 @@ export default class Supervision extends LitElement {
           >
             <mwc-icon
               slot="graphic"
-              title="${msg('Remove supervision of this control block')}"
+              title="Remove supervision of this control block"
               class="column button mitem deletable"
               >heart_minus</mwc-icon
             >
@@ -851,8 +850,7 @@ export default class Supervision extends LitElement {
         supervisionLnType[this.controlType]
       )
         ? html`<mwc-icon-button
-            title="${msg(str`
-              This IED does not support ${supervisionType} supervision modification.`)}"
+            title="This IED does not support ${supervisionType} supervision modification."
             icon="warning"
           ></mwc-icon-button>`
         : nothing}
@@ -894,7 +892,7 @@ export default class Supervision extends LitElement {
       <h2>
         ${this.selectedIed
           ? getNameAttribute(this.selectedIed)
-          : msg('No IED Selected')}
+          : 'No IED Selected'}
         (${this.selectedIed?.getAttribute('type') ?? 'Unknown Type'})
       </h2>
     </div>`;
@@ -1015,7 +1013,7 @@ export default class Supervision extends LitElement {
   private renderUnusedSupervisionList(): TemplateResult {
     return html`<div class="filteredList">
       <div class="searchField mitem sup-ln">
-        <abbr title="${msg('Search')}"
+        <abbr title="Search"
           ><mwc-textfield
             id="filterUnusedSupervisionInput"
             iconTrailing="search"
@@ -1076,7 +1074,7 @@ export default class Supervision extends LitElement {
     }
 
     if (this.newSupervision) {
-      titleText = msg('New Supervision LN');
+      titleText = 'New Supervision LN';
     }
 
     const supervisionType = this.controlType === 'GOOSE' ? 'LGOS' : 'LSVS';
@@ -1091,19 +1089,14 @@ export default class Supervision extends LitElement {
           >
             ${this.selectedSupervision || this.newSupervision
               ? titleText
-              : msg(
-                  str`Available ${
-                    this.controlType === 'GOOSE' ? 'LGOS' : 'LSVS'
-                  } Supervisions`
-                )}
+              : `Available ${
+                  this.controlType === 'GOOSE' ? 'LGOS' : 'LSVS'
+                } Supervisions`}
           </span>
           <mwc-icon-button
             id="createNewLN"
             class="greyOutDisabled"
-            title="${msg(str`
-              Create New ${supervisionType} Supervision`)} - ${availableSupervisionLNs} ${msg(
-              'available'
-            )}"
+            title="Create New ${supervisionType} Supervision - ${availableSupervisionLNs} available"
             icon="heart_plus"
             ?disabled=${availableSupervisionLNs <= 0}
             @click=${() => {
@@ -1134,8 +1127,8 @@ export default class Supervision extends LitElement {
             : ''}"
         >
           ${this.controlType === 'GOOSE'
-            ? msg(`Select GOOSE Control Block`)
-            : msg(`Select SV Control Block`)}
+            ? 'Select GOOSE Control Block'
+            : 'Select SV Control Block'}
         </h2>
         ${this.renderUnusedControlList()}
       </div>
@@ -1145,7 +1138,7 @@ export default class Supervision extends LitElement {
   renderControlSelector(): TemplateResult {
     return html`<mwc-icon-button-toggle
       id="controlType"
-      label="${msg('Change between GOOSE and Sampled Value publishers')}"
+      label="Change between GOOSE and Sampled Value publishers"
       @click=${() => {
         if (this.controlType === 'GOOSE') {
           this.controlType = 'SMV';
@@ -1179,18 +1172,12 @@ export default class Supervision extends LitElement {
           <div id="controlSelector" class="column">
             ${this.renderControlSelector()}
             <h2>
-              ${msg(
-                str`${
-                  this.controlType === 'GOOSE' ? 'LGOS' : 'LSVS'
-                } Supervisions`
-              )}
+              ${this.controlType === 'GOOSE' ? 'LGOS' : 'LSVS'} Supervisions
             </h2>
             <div class="side-icons">
               <div class="usage-group">
                 <mwc-icon>${getUsageIcon(percentUsed)}</mwc-icon>
-                <span class="usage"
-                  >${usedSupLNs} / ${totalSupLNs} ${msg('used')}</span
-                >
+                <span class="usage">${usedSupLNs} / ${totalSupLNs} used</span>
               </div>
             </div>
           </div>
@@ -1198,8 +1185,8 @@ export default class Supervision extends LitElement {
           <div class="column remover"></div>
           <h2 id="cbTitle" class="column">
             ${this.controlType === 'GOOSE'
-              ? msg('GOOSE Control Blocks')
-              : msg('SV Control Blocks')}
+              ? 'GOOSE Control Blocks'
+              : 'SV Control Blocks'}
           </h2>
           ${this.renderUsedSupervisionLNs()}
           ${this.renderDeleteIcons(true, false)}

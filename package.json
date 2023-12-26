@@ -18,18 +18,15 @@
     "test:update": "npm run build && wtr --update-visual-baseline",
     "analyze": "cem analyze --litelement",
     "deploy": "npm run bundle && gh-pages --dist 'dist'",
-    "build": "npm run extract && npm run localize && npm run compile",
+    "build": "npm run compile",
     "compile": "tsc -b",
     "bundle": "rimraf dist && rollup -c rollup.config.js",
-    "doc": "npm run analyze -- --exclude dist && typedoc --out dist/doc foundation.ts",
+    "doc": "npm run analyze -- --exclude dist && typedoc --out dist/doc oscd-supervision.ts",
     "prepublish": "npm run lint && npm run build && npm run doc",
     "lint": "eslint --ext .ts,.html . --ignore-path .gitignore && prettier \"**/*.ts\" --check --ignore-path .gitignore",
-    "format": "eslint --ext .ts,.html . --fix --ignore-path .gitignore && prettier \"**/*.ts\" --write --ignore-path .gitignore",
-    "extract": "lit-localize extract",
-    "localize": "lit-localize build"
+    "format": "eslint --ext .ts,.html . --fix --ignore-path .gitignore && prettier \"**/*.ts\" --write --ignore-path .gitignore"
   },
   "dependencies": {
-    "@lit/localize": "^0.11.4",
     "@material/mwc-button": "^0.27.0",
     "@material/mwc-checkbox": "^0.27.0",
     "@material/mwc-dialog": "^0.27.0",
@@ -40,14 +37,13 @@
     "@material/mwc-list": "^0.27.0",
     "@material/mwc-menu": "^0.27.0",
     "@material/mwc-textfield": "^0.27.0",
-    "@openenergytools/scl-lib": "^0.5.9",
+    "@openenergytools/scl-lib": "^0.9.21",
     "@openscd/open-scd-core": "^0.0.2",
     "@web/test-runner-commands": "^0.6.6",
     "lit": "^2.4.0"
   },
   "devDependencies": {
     "@custom-elements-manifest/analyzer": "^0.6.6",
-    "@lit/localize-tools": "^0.6.8",
     "@open-wc/building-rollup": "^2.0.2",
     "@open-wc/eslint-config": "^8.0.2",
     "@open-wc/testing": "^3.1.6",
