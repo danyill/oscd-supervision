@@ -1,7 +1,7 @@
 import { TemplateResult } from 'lit';
 import '@material/mwc-icon-button';
 import '@material/mwc-dialog';
-import { OscdFilteredList } from './oscd-filtered-list.js';
+import { OscdFilteredListOld } from './oscd-filtered-list-old.js';
 export interface SelectedItemsChangedDetail {
     selectedItems: string[];
 }
@@ -14,7 +14,7 @@ declare global {
 /**
  * A mwc-list with mwc-textfield that filters the list items for given or separated terms
  */
-export declare class FilterButton extends OscdFilteredList {
+export declare class FilterButton extends OscdFilteredListOld {
     header: TemplateResult | string;
     icon: string;
     disabled: boolean;

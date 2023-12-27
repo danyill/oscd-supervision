@@ -8,11 +8,11 @@ import '@material/mwc-list/mwc-radio-list-item';
 import '@material/mwc-icon-button-toggle';
 import '@material/mwc-icon';
 import '@material/mwc-icon-button';
+import '@openscd/oscd-filtered-list';
 import type { ListItem } from '@material/mwc-list/mwc-list-item';
 import type { List } from '@material/mwc-list';
 import type { TextField } from '@material/mwc-textfield';
 import './foundation/components/oscd-filter-button.js';
-import './foundation/components/oscd-filtered-list.js';
 /**
  * Editor to allow allocation of GOOSE and SMV supervision LNs
  * to control blocks
