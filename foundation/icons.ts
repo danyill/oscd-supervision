@@ -10,7 +10,7 @@ export const smvIcon = svg`<svg style="width:24px;height:24px" viewBox="0 0 24 2
 
 export type iconType = 'smvIcon' | 'gooseIcon';
 
-export function getIconButton(type: iconType, state: boolean): TemplateResult {
+function getIconButton(type: iconType, state: boolean): TemplateResult {
   return svg`<svg
     slot="${state ? 'onIcon' : 'offIcon'}"
     xmlns="http://www.w3.orgs/2000/svg"

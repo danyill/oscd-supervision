@@ -8,8 +8,13 @@ import {
 } from 'lit';
 import { property, query, state } from 'lit/decorators.js';
 
-import { identity, find } from '@openenergytools/scl-lib';
-import { Edit, newEditEvent, Remove } from '@openscd/open-scd-core';
+import {
+  identity,
+  find,
+  instantiateSubscriptionSupervision,
+  sourceControlBlock,
+} from '@openenergytools/scl-lib';
+import { newEditEvent, Remove } from '@openscd/open-scd-core';
 
 import '@material/mwc-button';
 import '@material/mwc-formfield';
@@ -33,12 +38,6 @@ import './foundation/components/oscd-filter-button.js';
 // import { canInstantiateSubscriptionSupervision } from '@openenergytools/scl-lib';
 
 import {
-  compareNames,
-  findControlBlocks,
-  getDescriptionAttribute,
-  getNameAttribute,
-} from './foundation/foundation.js';
-import {
   gooseActionIcon,
   smvActionIcon,
   gooseIcon,
@@ -46,14 +45,15 @@ import {
 } from './foundation/icons.js';
 
 import {
+  compareNames,
+  getDescriptionAttribute,
+  getNameAttribute,
   controlBlockReference,
-  createNewSupervisionLnEvent as createNewSupervisionLnEdit,
-  createNewSupervisionLnInst,
-  instantiateSubscriptionSupervision,
+  createNewSupervisionLnEvent,
   isSupervisionModificationAllowed,
   maxSupervisions,
   removeSubscriptionSupervision,
-} from './foundation/subscription/subscription.js';
+} from './foundation/subscription.js';
 
 import type { SelectedItemsChangedEvent } from './foundation/components/oscd-filter-button.js';
 
@@ -210,9 +210,11 @@ function getSubscribedCBRefs(
   const controlBlockRefs: Set<string> = new Set();
   extRefs.forEach(extRef => {
     if (isGOOSEorSMV(extRef, type)) {
-      findControlBlocks(extRef, type).forEach(cb =>
-        controlBlockRefs.add(controlBlockReference(cb) ?? 'Unknown Control')
-      );
+      const cb = sourceControlBlock(extRef);
+      if (cb) {
+        const cbRef = controlBlockReference(cb);
+        if (cbRef) controlBlockRefs.add(cbRef);
+      }
     }
   });
   return Array.from(controlBlockRefs);
@@ -613,6 +615,7 @@ export default class Supervision extends LitElement {
       this.selectedIed,
       this.controlType
     )[0];
+
     return html`<mwc-list class="column mlist deleter">
       <!-- show additional item to allow delete button alignment -->
       ${unused
@@ -914,63 +917,30 @@ export default class Supervision extends LitElement {
     selectedSupervision: Element | null,
     newSupervision: boolean
   ): void {
-    let edits: Edit[] | undefined;
+    const supervisionLN = instantiateSubscriptionSupervision(
+      {
+        subscriberIedOrLn: newSupervision
+          ? this.selectedIed!
+          : this.selectedSupervision!,
+        sourceControlBlock: selectedControl,
+      },
+      {
+        newSupervisionLn: newSupervision,
+        fixedLnInst: -1,
+        checkEditableSrcRef: true,
+        checkDuplicateSupervisions: true,
+        checkMaxSupervisionLimits: true,
+      }
+    );
 
-    if (newSupervision) {
-      this.createNewSupervision(selectedControl);
-    } else {
-      edits = instantiateSubscriptionSupervision(
-        selectedControl,
-        this.selectedIed,
-        selectedSupervision ?? undefined
-      );
-      this.dispatchEvent(newEditEvent(edits));
+    if (supervisionLN) {
+      this.dispatchEvent(newEditEvent(supervisionLN));
     }
 
     this.selectedIedSupervisedCBRefs = getSupervisedCBRefs(
       this.selectedIed,
       this.controlType
     );
-  }
-
-  // TODO: restructure in terms of edits
-  private createNewSupervision(selectedControl: Element): void {
-    const subscriberIED = this.selectedIed!;
-    const supervisionType =
-      selectedControl?.tagName === 'GSEControl' ? 'LGOS' : 'LSVS';
-    const newLN = createNewSupervisionLnInst(subscriberIED, supervisionType);
-    let edits: Edit[];
-
-    const parent = subscriberIED.querySelector(
-      `LN[lnClass="${supervisionType}"]`
-    )?.parentElement;
-    if (parent && newLN) {
-      // use Insert edit for supervision LN
-      edits = [
-        {
-          parent,
-          node: newLN,
-          reference:
-            parent!.querySelector(`LN[lnClass="${supervisionType}"]:last-child`)
-              ?.nextElementSibling ?? null,
-        },
-      ];
-
-      const instanceNum = newLN?.getAttribute('inst');
-
-      // TODO: Explain To The User That They Have Erred And Can't Make Any New Subscriptions!
-      if (edits) {
-        this.dispatchEvent(newEditEvent(edits));
-        const instantiationEdit = instantiateSubscriptionSupervision(
-          selectedControl,
-          this.selectedIed,
-          parent!.querySelector(
-            `LN[lnClass="${supervisionType}"][inst="${instanceNum}"]`
-          )!
-        );
-        this.dispatchEvent(newEditEvent(instantiationEdit));
-      }
-    }
   }
 
   private renderUnusedControlList(): TemplateResult {
@@ -1100,7 +1070,7 @@ export default class Supervision extends LitElement {
             ?disabled=${availableSupervisionLNs <= 0}
             @click=${() => {
               if (this.selectedIed) {
-                const edit = createNewSupervisionLnEdit(
+                const edit = createNewSupervisionLnEvent(
                   this.selectedIed,
                   supervisionType
                 );
