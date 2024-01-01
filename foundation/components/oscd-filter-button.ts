@@ -1,4 +1,4 @@
-import { css, html, TemplateResult, unsafeCSS } from 'lit';
+import { css, CSSResultGroup, html, TemplateResult, unsafeCSS } from 'lit';
 import { customElement, property, query } from 'lit/decorators.js';
 
 import '@material/mwc-icon-button';
@@ -23,7 +23,7 @@ function newSelectedItemsChangedEvent(
     bubbles: true,
     composed: true,
     ...eventInitDict,
-    detail: { selectedItems, ...eventInitDict?.detail },
+    detail: { selectedItems, ...eventInitDict?.detail }
   });
 }
 
@@ -89,7 +89,7 @@ export class FilterButton extends OscdFilteredListOld {
     `;
   }
 
-  static styles = css`
+  static styles: CSSResultGroup = css`
     ${unsafeCSS(OscdFilteredListOld.styles)}
 
     mwc-icon-button {

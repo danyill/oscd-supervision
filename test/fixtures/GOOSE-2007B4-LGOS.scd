@@ -138,7 +138,7 @@
 					</LN>
 					<LN prefix="" lnClass="XSWI" inst="1" lnType="Dummy.XSWI"/>
 				</LDevice>
-				<LDevice inst="SV_supervision">
+				<LDevice inst="GOOSE_Supervision">
 					<LN0 lnClass="LLN0" inst="" lnType="Dummy.LLN0"/>
 					<LN lnClass="LGOS" inst="1" lnType="Dummy.LGOS">
 						<DOI name="GoCBRef">

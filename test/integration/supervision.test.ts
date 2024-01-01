@@ -1,6 +1,3 @@
-/* eslint-disable func-names */
-/* eslint-disable prefer-arrow-callback */
-
 import { visualDiff } from '@web/test-runner-visual-regression';
 
 import { setViewport, resetMouse } from '@web/test-runner-commands';
@@ -39,7 +36,7 @@ describe(pluginName, () => {
   let editor: any;
   let plugin: any;
 
-  beforeEach(async function () {
+  beforeEach(async () => {
     const plugins = {
       menu: [
         {
@@ -47,15 +44,15 @@ describe(pluginName, () => {
           translations: { de: 'Datei öffnen' },
           icon: 'folder_open',
           active: true,
-          src: 'https://openscd.github.io/oscd-open/oscd-open.js',
+          src: 'https://openscd.github.io/oscd-open/oscd-open.js'
         },
         {
           name: 'Save File',
           translations: { de: 'Datei speichern' },
           icon: 'save',
           active: true,
-          src: 'https://openscd.github.io/oscd-save/oscd-save.js',
-        },
+          src: 'https://openscd.github.io/oscd-save/oscd-save.js'
+        }
       ],
       editor: [
         {
@@ -63,16 +60,13 @@ describe(pluginName, () => {
           translations: { de: 'Überwachung', pt: 'Supervisão' },
           icon: 'ecg',
           active: true,
-          src: '/dist/oscd-supervision.js',
-        },
-      ],
+          src: '/dist/oscd-supervision.js'
+        }
+      ]
     };
 
     const ed = await fixture(
-      html`<open-scd
-        language="en"
-        plugins="${JSON.stringify(plugins)}"
-      ></open-scd>`
+      html`<open-scd language="en" .plugins="${plugins}"></open-scd>`
     );
     document.body.prepend(ed);
     // TODO remove once OpenSCD is exported as a Lit Element and updateComplete is available
@@ -91,7 +85,7 @@ describe(pluginName, () => {
 
   describe('goose', () => {
     describe('shows supervisions', () => {
-      beforeEach(async function () {
+      beforeEach(async () => {
         localStorage.clear();
         await tryViewportSet();
         resetMouse();

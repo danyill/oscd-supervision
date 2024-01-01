@@ -55,7 +55,7 @@ export function getSclSchemaVersion(doc: Document): SclEdition {
 export const serviceTypes: Partial<Record<string, string>> = {
   ReportControl: 'Report',
   GSEControl: 'GOOSE',
-  SampledValueControl: 'SMV',
+  SampledValueControl: 'SMV'
 };
 
 /**
@@ -190,7 +190,7 @@ export function findFCDAs(extRef: Element): Element[] {
     'lnClass',
     'lnInst',
     'doName',
-    'daName',
+    'daName'
   ].map(name => extRef.getAttribute(name));
   const ied = Array.from(extRef.ownerDocument.getElementsByTagName('IED')).find(
     element =>
@@ -313,7 +313,7 @@ export function removeSubscriptionSupervision(
 
   // remove old element
   edits.push({
-    node: valElement,
+    node: valElement
   });
 
   const newValElement = <Element>valElement.cloneNode(true);
@@ -323,7 +323,7 @@ export function removeSubscriptionSupervision(
   edits.push({
     parent: daiElement!,
     reference: null,
-    node: newValElement,
+    node: newValElement
   });
 
   return edits;
@@ -474,9 +474,8 @@ export function createNewSupervisionLnEvent(
 
   if (!newLN) return null;
 
-  const parent = ied.querySelector(
-    `LN[lnClass="${supervisionType}"]`
-  )?.parentElement;
+  const parent = ied.querySelector(`LN[lnClass="${supervisionType}"]`)
+    ?.parentElement;
 
   if (parent && newLN) {
     const edit = {
@@ -484,7 +483,7 @@ export function createNewSupervisionLnEvent(
       node: newLN,
       reference:
         parent!.querySelector(`LN[lnClass="${supervisionType}"]:last-child`)
-          ?.nextElementSibling ?? null,
+          ?.nextElementSibling ?? null
     };
 
     return edit;
@@ -575,7 +574,7 @@ export function instantiateSubscriptionSupervision(
         node: availableLN,
         reference:
           parent!.querySelector(`LN[lnClass="${supervisionType}"]:last-child`)
-            ?.nextElementSibling ?? null,
+            ?.nextElementSibling ?? null
       });
     }
   }
@@ -593,7 +592,7 @@ export function instantiateSubscriptionSupervision(
     edits.push({
       parent: availableLN!,
       reference: null,
-      node: doiElement,
+      node: doiElement
     });
   }
 
@@ -621,7 +620,7 @@ export function instantiateSubscriptionSupervision(
     edits.push({
       parent: doiElement!,
       reference: null,
-      node: daiElement,
+      node: daiElement
     });
   }
 
@@ -632,7 +631,7 @@ export function instantiateSubscriptionSupervision(
   if (valElement) {
     // remove old element
     edits.push({
-      node: valElement,
+      node: valElement
     });
     newValElement = <Element>valElement.cloneNode(true);
   } else {
@@ -647,7 +646,7 @@ export function instantiateSubscriptionSupervision(
   edits.push({
     parent: daiElement!,
     reference: null,
-    node: newValElement,
+    node: newValElement
   });
 
   return edits;

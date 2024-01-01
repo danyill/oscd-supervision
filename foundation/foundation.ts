@@ -42,7 +42,7 @@ const serviceTypeControlBlockTags: Partial<Record<string, string[]>> = {
   GOOSE: ['GSEControl'],
   SMV: ['SampledValueControl'],
   Report: ['ReportControl'],
-  NONE: ['LogControl', 'GSEControl', 'SampledValueControl', 'ReportControl'],
+  NONE: ['LogControl', 'GSEControl', 'SampledValueControl', 'ReportControl']
 };
 
 // NOTE: This function modified extensively from the core function to more efficiently handle the srcXXX attributes on ExtRefs

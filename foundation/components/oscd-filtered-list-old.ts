@@ -1,4 +1,3 @@
-/* eslint-disable no-use-before-define */
 import { customElement, property, query, state } from 'lit/decorators.js';
 
 import '@material/mwc-checkbox';
@@ -13,6 +12,7 @@ import { css, html, unsafeCSS } from 'lit';
 
 function slotItem(item: Element): Element {
   if (!item.closest('oscd-filtered-list') || !item.parentElement) return item;
+  // eslint-disable-next-line no-use-before-define
   if (item.parentElement instanceof OscdFilteredListOld) return item;
   return slotItem(item.parentElement);
 }
@@ -149,7 +149,8 @@ export class OscdFilteredListOld extends ListBase {
       ${super.render()}`;
   }
 
-  static styles = css`
+  // TODO: Is it possible to remove the any typing here?
+  static styles: any = css`
     ${unsafeCSS(List.styles)}
 
     #tfcontainer {

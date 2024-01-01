@@ -4,7 +4,7 @@ import {
   LitElement,
   nothing,
   PropertyValues,
-  TemplateResult,
+  TemplateResult
 } from 'lit';
 import { property, query, state } from 'lit/decorators.js';
 
@@ -36,13 +36,13 @@ import {
   compareNames,
   findControlBlocks,
   getDescriptionAttribute,
-  getNameAttribute,
+  getNameAttribute
 } from './foundation/foundation.js';
 import {
   gooseActionIcon,
   smvActionIcon,
   gooseIcon,
-  smvIcon,
+  smvIcon
 } from './foundation/icons.js';
 
 import {
@@ -52,7 +52,7 @@ import {
   instantiateSubscriptionSupervision,
   isSupervisionModificationAllowed,
   maxSupervisions,
-  removeSubscriptionSupervision,
+  removeSubscriptionSupervision
 } from './foundation/subscription/subscription.js';
 
 import type { SelectedItemsChangedEvent } from './foundation/components/oscd-filter-button.js';
@@ -136,7 +136,7 @@ const progressIcons: Record<string, string> = {
   60: 'clock_loader_60',
   80: 'clock_loader_80',
   90: 'clock_loader_90',
-  100: 'stroke_full',
+  100: 'stroke_full'
 };
 
 function getUsageIcon(percent: number): string {
@@ -274,6 +274,8 @@ function getSupervisedCBRefs(
   if (!ied) return [];
   const supervisedCbRefs: string[] = [];
   const controlElements = getOtherIedControlElements(ied, controlType);
+  const subscribedCbRefs = getSubscribedCBRefs(ied, controlType);
+
   getSupervisionLNs(ied, controlType).forEach(lN => {
     const cbRef = getSupervisionCBRef(lN);
     if (cbRef !== null && cbRef !== '') {
@@ -282,7 +284,11 @@ function getSupervisedCBRefs(
           control => cbRef === controlBlockReference(control)
         ) ?? null;
       if (controlElement) {
-        if (!supervisedCbRefs.includes(cbRef)) supervisedCbRefs.push(cbRef);
+        if (
+          !supervisedCbRefs.includes(cbRef) &&
+          subscribedCbRefs.includes(cbRef)
+        )
+          supervisedCbRefs.push(cbRef);
       }
     }
   });
@@ -662,7 +668,7 @@ export default class Supervision extends LitElement {
                     lN !== firstSupervision
                   ) {
                     const removeEdit: Remove = {
-                      node: lN,
+                      node: lN
                     };
                     this.dispatchEvent(newEditEvent(removeEdit));
                     this.selectedIedSupervisedCBRefs = getSupervisedCBRefs(
@@ -735,6 +741,7 @@ export default class Supervision extends LitElement {
                 this.requestUpdate();
               }
 
+              this.updateCBRefInfo(this.selectedIed, this.controlType);
               this.clearListSelections();
             }}
           >
@@ -772,7 +779,7 @@ export default class Supervision extends LitElement {
     } else if (pathDescription && datasetName) {
       secondLineDesc += ` - ${pathDescription} (Dataset: ${datasetName}, Id: ${controlId})`;
     } else if (!pathDescription && datasetName) {
-      secondLineDesc += ` - Dataset: ${datasetName}, Id: ${controlId})`;
+      secondLineDesc += ` - (Dataset: ${datasetName}, Id: ${controlId})`;
     }
 
     return html`<mwc-list-item
@@ -903,9 +910,11 @@ export default class Supervision extends LitElement {
     }
 
     if (this.filterUnusedControlBlocksList) {
-      this.filterUnusedControlBlocksList!.shadowRoot!.querySelector(
-        'mwc-textfield'
-      )!.value = '';
+      const textField =
+        this.filterUnusedControlBlocksList!.shadowRoot!.querySelector(
+          'mwc-textfield'
+        );
+      if (textField) textField.value = '';
     }
   }
 
@@ -952,8 +961,8 @@ export default class Supervision extends LitElement {
           node: newLN,
           reference:
             parent!.querySelector(`LN[lnClass="${supervisionType}"]:last-child`)
-              ?.nextElementSibling ?? null,
-        },
+              ?.nextElementSibling ?? null
+        }
       ];
 
       const instanceNum = newLN?.getAttribute('inst');
@@ -1000,6 +1009,7 @@ export default class Supervision extends LitElement {
           );
         }
 
+        this.updateCBRefInfo(this.selectedIed, this.controlType);
         this.clearListSelections();
       }}
     >
