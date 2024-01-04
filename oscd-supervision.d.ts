@@ -17,7 +17,7 @@ import './foundation/components/oscd-filter-button.js';
  * Editor to allow allocation of GOOSE and SMV supervision LNs
  * to control blocks
  */
-export default class Supervision extends LitElement {
+export default class OscdSupervision extends LitElement {
     doc: XMLDocument;
     docName: string;
     editCount: number;

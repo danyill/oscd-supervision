@@ -22,6 +22,6 @@ export declare class OscdFilteredListOld extends ListBase {
     protected onListItemConnected(e: CustomEvent): void;
     constructor();
     private renderCheckAll;
-    render(): import("lit-html").TemplateResult<1>;
-    static styles: import("lit").CSSResult;
+    render(): import("lit").TemplateResult<1>;
+    static styles: any;
 }
