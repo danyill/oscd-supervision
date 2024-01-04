@@ -2,7 +2,7 @@
 :plugin-name: Supervision
 :sectnums:
 :sectlinks:
-:toc:
+:toc: macro
 :imagesdir: docs/media
 :icons: font
 :experimental:
@@ -22,6 +22,13 @@
 :uri-material-icons: https://fonts.google.com/icons
 :uri-openscd-core-plugin-demo: https://danyill.github.io/oscd-supervision/index.deploy.html
 
+// badges
+image:https://github.com/danyill/oscd-subscriber-later-binding/actions/workflows/test.yml/badge.svg[title='Build Status']
+image:https://img.shields.io/badge/built%20with-open--wc-blue.svg[link={uri-openwc},title='Built with open-wc recommendations']
+image:https://img.shields.io/badge/LF%20Energy%20Slack-%20%23OpenSCD%20chat-purple?logo=slack&color=2aa198&labelColor=6c71c4[link=https://lfenergy.slack.com/archives/C03LH7EUP34,title='Slack LF Energy']
+
+toc::[]
+
 == What is this?
 
 This plugin is intended to allow a user to add, remove and configure IEC 61850 GOOSE and SMV supervisions:
@@ -36,11 +43,8 @@ editor engine for {uri-openscd}[OpenSCD].
 
 {uri-openscd-core-plugin-demo}[Try it out online]!
 
-|===
-a|
 .Supervision Editor Plugin
-image::screenshot-supervision-editor.png[width=800,link={imagesdir}/screenshot-supervision-editor.png]
-|===
+image::../../test/screenshots/baseline/LGOS changes supervisions can delete a used supervision-Chromium.png[width=800,link=../../test/screenshots/baseline/LGOS changes supervisions can delete a used supervision-Chromium.png]
 
 Feel free to log issues to request fixes, improvements or new features.
 

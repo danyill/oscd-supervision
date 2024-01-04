@@ -5,27 +5,44 @@ import path from 'path';
 import pixelmatch from 'pixelmatch';
 import { PNG } from 'pngjs';
 
-const fuzzy = ['win32', 'darwin'].includes(process.platform); // allow for 1% difference on non-linux OSs
+const fuzzy = ['win32', 'darwin'].includes(process.platform); // allow for difference on non-linux OSs
 const local = !process.env.CI;
+
+const thresholdPercentage = fuzzy && !local ? 0.2 : 0;
 
 // eslint-disable-next-line no-console
 console.assert(local, 'Running in CI!');
 // eslint-disable-next-line no-console
-console.assert(!fuzzy, 'Running on OS with 1% test pixel diff threshold!');
-
-const thresholdPercentage = fuzzy && local ? 1 : 0;
+console.assert(
+  !fuzzy,
+  `Running on OS with ${thresholdPercentage}% test pixel diff threshold!`
+);
 
 const filteredLogs = [
   'Running in dev mode',
   'Lit is in dev mode',
-  'mwc-list-item scheduled an update',
+  'scheduled an update',
 ];
 
-// TODO: re-enable other browsers
-// TODO: Diagnose incorrect mwc-icon display  in webkit, may be upstream issue
+// Consistency in fonts is hard without containers, see:
+// https://github.com/microsoft/playwright/issues/20097
+// https://github.com/puppeteer/puppeteer/issues/661
 const browsers = [
-  playwrightLauncher({ product: 'chromium' }),
-  // playwrightLauncher({ product: 'firefox' }),
+  playwrightLauncher({
+    product: 'chromium',
+    launchOptions: {
+      args: [
+        '--font-render-hinting=none',
+        '--disable-skia-runtime-opts',
+        '--disable-font-subpixel-positioning',
+        '--disable-lcd-text',
+        '--disable-gpu',
+      ],
+    },
+  }),
+  playwrightLauncher({ product: 'firefox' }),
+  // TODO: Webkit disabled as unable to get consistent screenshots between
+  // local and CI environment
   // playwrightLauncher({ product: 'webkit' }),
 ];
 
@@ -74,6 +91,9 @@ export default /** @type {import("@web/test-runner").TestRunnerConfig} */ ({
     visualRegressionPlugin({
       update: process.argv.includes('--update-visual-baseline'),
       baseDir: 'test/screenshots',
+      diffOptions: {
+        includeAA: true,
+      },
       getImageDiff: options => {
         const result = defaultGetImageDiff(options);
         if (result.diffPercentage < thresholdPercentage)
@@ -89,9 +109,6 @@ export default /** @type {import("@web/test-runner").TestRunnerConfig} */ ({
     }),
   ],
 
-  // TODO: Ask Christian about .spec.js vs .test.js
-  files: 'dist/test/**/*.test.js',
-
   groups: [
     {
       name: 'visual',
@@ -99,8 +116,8 @@ export default /** @type {import("@web/test-runner").TestRunnerConfig} */ ({
       testRunnerHtml: testFramework => `
 <html>
   <head>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@300&family=Roboto:wght@300;400;500&display=swap">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Material+Icons&display=block">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@300&family=Roboto:wght@300;400;500&display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined&display=block" />
   </head>
   <body>
     <style class="deanimator">
@@ -110,6 +127,13 @@ export default /** @type {import("@web/test-runner").TestRunnerConfig} */ ({
      -moz-animation: none !important;
      animation: none !important;
     }
+    </style>
+    <style>
+    * { -webkit-font-smoothing: none; 
+     font-kerning: none; 
+     text-rendering: geometricPrecision;
+     font-variant-ligatures: none;
+     letter-spacing: 0.01em;}
     </style>
     <script>window.process = { env: ${JSON.stringify(process.env)} }</script>
     <script type="module" src="${testFramework}"></script>
@@ -140,6 +164,7 @@ export default /** @type {import("@web/test-runner").TestRunnerConfig} */ ({
     * {
       margin: 0px;
       padding: 0px;
+      --mdc-icon-font: 'Material Symbols Outlined';
     }
 
     body {
@@ -177,6 +202,9 @@ export default /** @type {import("@web/test-runner").TestRunnerConfig} */ ({
 
   /** Browsers to run tests on */
   browsers,
+
+  // 30 minutes
+  testsFinishTimeout: 30 * 60 * 1000,
 
   // See documentation for all available options
 });

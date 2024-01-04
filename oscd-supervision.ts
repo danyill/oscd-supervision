@@ -315,7 +315,7 @@ function getCBRefs(
  * Editor to allow allocation of GOOSE and SMV supervision LNs
  * to control blocks
  */
-export default class Supervision extends LitElement {
+export default class OscdSupervision extends LitElement {
   @property({ attribute: false })
   doc!: XMLDocument;
 
@@ -450,7 +450,14 @@ export default class Supervision extends LitElement {
 
   // eslint-disable-next-line class-methods-use-this
   renderUnusedSupervisionNode(lN: Element): TemplateResult {
-    const description = getDescriptionAttribute(lN);
+    const descriptionLn = getDescriptionAttribute(lN);
+    const cbRef = this.controlType === 'GOOSE' ? 'GoCBRef' : 'SvCBRef';
+    const doi = lN.querySelector(`DOI[name="${cbRef}"`);
+    const descriptionDoi = doi ? getDescriptionAttribute(doi) : undefined;
+    const description = [descriptionLn, descriptionDoi]
+      .filter(d => d !== undefined)
+      .join(' > ');
+
     const controlBlockRef = getSupervisionCBRef(lN);
     const invalidControlBlock =
       controlBlockRef !== '' &&
@@ -458,42 +465,61 @@ export default class Supervision extends LitElement {
         controlBlockRef ?? 'Unknown control block'
       ) &&
       controlBlockRef !== null;
+    const notSubscribedControlBlock =
+      controlBlockRef !== '' &&
+      !this.selectedIedSubscribedCBRefs.includes(
+        controlBlockRef ?? 'Unknown control block'
+      ) &&
+      controlBlockRef !== null;
+
     return html`
       <mwc-list-item
-        ?twoline=${!!description || !!invalidControlBlock}
+        ?twoline=${!!description ||
+        !!invalidControlBlock ||
+        !!notSubscribedControlBlock}
         class="mitem"
         graphic="icon"
-        ?hasMeta=${invalidControlBlock}
+        ?hasMeta=${invalidControlBlock || notSubscribedControlBlock}
         ?noninteractive=${this.selectedIedSupervisedCBRefs.length ===
         this.selectedIedSubscribedCBRefs.length}
-        data-supervision="${identity(lN)}"
+        data-ln="${identity(lN)}"
         value="${identity(lN)}"
       >
         <span>${supervisionPath(lN)}</span>
-        ${description || invalidControlBlock
+        ${description || invalidControlBlock || notSubscribedControlBlock
           ? html`<span slot="secondary"
-              >${description}${description && invalidControlBlock
+              >${description}${description &&
+              (invalidControlBlock || notSubscribedControlBlock)
                 ? ' - '
                 : ''}${invalidControlBlock
                 ? `Invalid Control Block reference: "${controlBlockRef}"`
-                : ''}</span
-            >`
+                : ''}${notSubscribedControlBlock && !invalidControlBlock
+                ? `Control block not subscribed: "${controlBlockRef}"`
+                : ''}
+            </span>`
           : nothing}
         <mwc-icon slot="graphic">monitor_heart</mwc-icon>
-        ${invalidControlBlock
+        ${invalidControlBlock || notSubscribedControlBlock
           ? html`<mwc-icon class="invalid-mapping" slot="meta"
-              >warning</mwc-icon
+              >${invalidControlBlock ? 'warning' : 'error'}</mwc-icon
             >`
           : ''}
       </mwc-list-item>
-      <!-- TODO: Tidy up invalid control block reference code -->
       <!-- TODO: In future add wizards -->
     `;
   }
 
   // eslint-disable-next-line class-methods-use-this
   renderSupervisionListItem(lN: Element, interactive: boolean): TemplateResult {
-    const description = getDescriptionAttribute(lN);
+    const descriptionLn = getDescriptionAttribute(lN);
+    const cbRef = this.controlType === 'GOOSE' ? 'GoCBRef' : 'SvCBRef';
+    const doi = lN.querySelector(`DOI[name="${cbRef}"`);
+    const descriptionDoi = doi ? getDescriptionAttribute(doi) : undefined;
+
+    const description = [descriptionLn, descriptionDoi]
+      .filter(d => d !== undefined)
+      .join(' > ');
+
     return html`
       <mwc-list-item
         ?twoline=${!!description}
@@ -557,6 +583,23 @@ export default class Supervision extends LitElement {
       });
   }
 
+  searchUnusedSupervisionLN(supLn: Element): boolean {
+    const descriptionLn = getDescriptionAttribute(supLn);
+    const cbRef = this.controlType === 'GOOSE' ? 'GoCBRef' : 'SvCBRef';
+    const doi = supLn.querySelector(`DOI[name="${cbRef}"`);
+    const descriptionDoi = doi ? getDescriptionAttribute(doi) : undefined;
+    const description = [descriptionLn, descriptionDoi]
+      .filter(d => d !== undefined)
+      .join(' > ');
+
+    const supervisionSearchText = `${identity(supLn)} ${description}`;
+
+    return (
+      this.searchUnusedSupervisions &&
+      this.searchUnusedSupervisions.test(supervisionSearchText)
+    );
+  }
+
   protected renderUnusedSupervisionLNs(
     used = false,
     unused = false
@@ -578,22 +621,13 @@ export default class Supervision extends LitElement {
     const supervisionType = this.controlType === 'GOOSE' ? 'LGOS' : 'LSVS';
 
     return html`${this.getSelectedIedSupLNs(used, unused)
-        .filter(supervision => {
-          const supervisionSearchText = `${identity(
-            supervision
-          )} ${supervision.getAttribute('desc')}`;
-
-          return (
-            this.searchUnusedSupervisions &&
-            this.searchUnusedSupervisions.test(supervisionSearchText)
-          );
-        })
+        .filter(supLn => this.searchUnusedSupervisionLN(supLn))
         .map(lN => html`${this.renderUnusedSupervisionNode(lN)}`)}
       <mwc-list-item
         hasMeta
         class="sup-ln mitem"
         graphic="icon"
-        data-supervision="NEW"
+        data-ln="NEW"
         value="New ${supervisionType} 'Supervision'"
         ?noninteractive=${availableSupervisionLNs === 0 ||
         this.selectedIedSupervisedCBRefs.length ===
@@ -625,18 +659,11 @@ export default class Supervision extends LitElement {
         ? html`<mwc-list-item twoline noninteractive></mwc-list-item>`
         : nothing}
       ${this.getSelectedIedSupLNs(used, unused)
-        .filter(supervision => {
-          const supervisionSearchText = `${identity(
-            supervision
-          )} ${supervision.getAttribute('desc')}`;
-
-          return (
+        .filter(
+          supLn =>
             !withFiltering ||
-            (withFiltering &&
-              this.searchUnusedSupervisions &&
-              this.searchUnusedSupervisions.test(supervisionSearchText))
-          );
-        })
+            (withFiltering && this.searchUnusedSupervisionLN(supLn))
+        )
         .map(
           lN => html`
             <mwc-list-item
@@ -911,7 +938,7 @@ export default class Supervision extends LitElement {
 
     if (this.filterUnusedControlBlocksList) {
       const textField =
-        this.filterUnusedControlBlocksList!.shadowRoot!.querySelector(
+        this.filterUnusedControlBlocksList?.shadowRoot?.querySelector(
           'mwc-textfield'
         );
       if (textField) textField.value = '';
@@ -1044,13 +1071,9 @@ export default class Supervision extends LitElement {
           ))!;
           if (!selectedListItem) return;
 
-          const { supervision } = selectedListItem.dataset;
-          const selectedSupervision = find(
-            this.doc,
-            'LN',
-            supervision ?? 'Unknown'
-          );
-          if (supervision === 'NEW') {
+          const { ln } = selectedListItem.dataset;
+          const selectedSupervision = find(this.doc, 'LN', ln ?? 'Unknown');
+          if (ln === 'NEW') {
             this.newSupervision = true;
           }
 
@@ -1382,7 +1405,11 @@ export default class Supervision extends LitElement {
       --mdc-theme-text-disabled-on-light: var(--disabledVisibleElement);
     }
 
-    .sup-ln.mitem[data-supervision='NEW'][noninteractive] {
+    .sup-ln.mitem[data-ln='NEW'][noninteractive] {
+      color: var(--disabledVisibleElement);
+    }
+
+    mwc-list-item[noninteractive] > mwc-icon.button {
       color: var(--disabledVisibleElement);
     }
 
