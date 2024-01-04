@@ -15083,6 +15083,18 @@ class OscdSupervision extends s$h {
             return instA.localeCompare(instB);
         });
     }
+    searchUnusedSupervisionLN(supLn) {
+        const descriptionLn = getDescriptionAttribute(supLn);
+        const cbRef = this.controlType === 'GOOSE' ? 'GoCBRef' : 'SvCBRef';
+        const doi = supLn.querySelector(`DOI[name="${cbRef}"`);
+        const descriptionDoi = doi ? getDescriptionAttribute(doi) : undefined;
+        const description = [descriptionLn, descriptionDoi]
+            .filter(d => d !== undefined)
+            .join(' > ');
+        const supervisionSearchText = `${identity(supLn)} ${description}`;
+        return (this.searchUnusedSupervisions &&
+            this.searchUnusedSupervisions.test(supervisionSearchText));
+    }
     renderUnusedSupervisionLNs(used = false, unused = false) {
         if (!this.selectedIed)
             return x$1 ``;
@@ -15093,18 +15105,7 @@ class OscdSupervision extends s$h {
         const availableSupervisionLNs = maxSupervisionLNs - instantiatedSupervisionLNs;
         const supervisionType = this.controlType === 'GOOSE' ? 'LGOS' : 'LSVS';
         return x$1 `${this.getSelectedIedSupLNs(used, unused)
-            .filter(supLn => {
-            const descriptionLn = getDescriptionAttribute(supLn);
-            const cbRef = this.controlType === 'GOOSE' ? 'GoCBRef' : 'SvCBRef';
-            const doi = supLn.querySelector(`DOI[name="${cbRef}"`);
-            const descriptionDoi = doi ? getDescriptionAttribute(doi) : undefined;
-            const description = [descriptionLn, descriptionDoi]
-                .filter(d => d !== undefined)
-                .join(' > ');
-            const supervisionSearchText = `${identity(supLn)} ${description}`;
-            return (this.searchUnusedSupervisions &&
-                this.searchUnusedSupervisions.test(supervisionSearchText));
-        })
+            .filter(supLn => this.searchUnusedSupervisionLN(supLn))
             .map(lN => x$1 `${this.renderUnusedSupervisionNode(lN)}`)}
       <mwc-list-item
         hasMeta
@@ -15134,13 +15135,8 @@ class OscdSupervision extends s$h {
             ? x$1 `<mwc-list-item twoline noninteractive></mwc-list-item>`
             : T$1}
       ${this.getSelectedIedSupLNs(used, unused)
-            .filter(supervision => {
-            const supervisionSearchText = `${identity(supervision)} ${supervision.getAttribute('desc')}`;
-            return (!withFiltering ||
-                (withFiltering &&
-                    this.searchUnusedSupervisions &&
-                    this.searchUnusedSupervisions.test(supervisionSearchText)));
-        })
+            .filter(supLn => !withFiltering ||
+            (withFiltering && this.searchUnusedSupervisionLN(supLn)))
             .map(lN => x$1 `
             <mwc-list-item
               ?noninteractive=${!isSupervisionModificationAllowed(this.selectedIed, supervisionLnType[this.controlType])}

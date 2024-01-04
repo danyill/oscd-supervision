@@ -60,6 +60,7 @@ export default class OscdSupervision extends LitElement {
     renderSupervisionListItem(lN: Element, interactive: boolean): TemplateResult;
     clearListSelections(): void;
     private getSelectedIedSupLNs;
+    searchUnusedSupervisionLN(supLn: Element): boolean;
     protected renderUnusedSupervisionLNs(used?: boolean, unused?: boolean): TemplateResult;
     private renderDeleteIcons;
     private renderUsedSupervisionLNs;
