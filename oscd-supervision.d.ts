@@ -66,12 +66,10 @@ export default class OscdSupervision extends LitElement {
     private renderUsedSupervisionLNs;
     private renderUsedSupervisionRemovalIcons;
     private renderControl;
-    private renderUnusedControls;
     private renderUsedControls;
     private renderInfo;
     private renderIedSelector;
     private resetSearchFilters;
-    private createSupervision;
     private createNewSupervision;
     private renderUnusedControlList;
     private renderUnusedSupervisionList;

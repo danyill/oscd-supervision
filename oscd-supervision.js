@@ -15112,10 +15112,10 @@ class OscdSupervision extends s$h {
         class="sup-ln mitem"
         graphic="icon"
         data-ln="NEW"
-        value="New ${supervisionType} 'Supervision'"
-        ?noninteractive=${availableSupervisionLNs === 0 ||
-            this.selectedIedSupervisedCBRefs.length ===
-                this.selectedIedSubscribedCBRefs.length}
+        value="New ${supervisionType} Supervision"
+        ?noninteractive=${this.selectedIedSupervisedCBRefs.length ===
+            this.selectedIedSubscribedCBRefs.length ||
+            availableSupervisionLNs === 0}
       >
         <span
           >New ${supervisionType} Supervision
@@ -15129,11 +15129,31 @@ class OscdSupervision extends s$h {
     }
     renderDeleteIcons(used = true, unused = false, withFiltering = false) {
         const firstSupervision = getSupervisionLNs(this.selectedIed, this.controlType)[0];
-        return x$1 `<mwc-list class="column mlist deleter">
+        return x$1 `<mwc-list
+      class="column mlist deleter"
+      @selected=${(ev) => {
+            const selectedListItem = ev.target.selected;
+            if (!selectedListItem)
+                return;
+            const { ln } = selectedListItem.dataset;
+            if (!ln)
+                return;
+            const lN = find(this.doc, 'LN', ln);
+            if (!lN)
+                return;
+            if (isSupervisionModificationAllowed(this.selectedIed, supervisionLnType[this.controlType]) &&
+                lN !== firstSupervision) {
+                const removeEdit = {
+                    node: lN
+                };
+                this.dispatchEvent(newEditEvent(removeEdit));
+                this.updateCBRefInfo(this.selectedIed, this.controlType);
+            }
+            this.clearListSelections();
+        }}
+    >
       <!-- show additional item to allow delete button alignment -->
-      ${unused
-            ? x$1 `<mwc-list-item twoline noninteractive></mwc-list-item>`
-            : T$1}
+      ${unused ? x$1 `<mwc-list-item twoline></mwc-list-item>` : T$1}
       ${this.getSelectedIedSupLNs(used, unused)
             .filter(supLn => !withFiltering ||
             (withFiltering && this.searchUnusedSupervisionLN(supLn)))
@@ -15155,17 +15175,6 @@ class OscdSupervision extends s$h {
                 slot="graphic"
                 label="Delete supervision logical node"
                 data-lN="${identity(lN)}"
-                @click=${() => {
-            if (isSupervisionModificationAllowed(this.selectedIed, supervisionLnType[this.controlType]) &&
-                lN !== firstSupervision) {
-                const removeEdit = {
-                    node: lN
-                };
-                this.dispatchEvent(newEditEvent(removeEdit));
-                this.selectedIedSupervisedCBRefs = getSupervisedCBRefs(this.selectedIed, this.controlType);
-            }
-            this.clearListSelections();
-        }}
                 >${lN === firstSupervision ? 'block' : 'delete'}</mwc-icon
               >
             </mwc-list-item>
@@ -15187,7 +15196,28 @@ class OscdSupervision extends s$h {
     </mwc-list>`;
     }
     renderUsedSupervisionRemovalIcons() {
-        return x$1 `<mwc-list class="column remover mlist">
+        return x$1 `<mwc-list
+      class="column remover mlist"
+      @selected=${(ev) => {
+            const selectedListItem = ev.target.selected;
+            if (!selectedListItem)
+                return;
+            const { ln } = selectedListItem.dataset;
+            if (!ln)
+                return;
+            const lN = find(this.doc, 'LN', ln);
+            if (!lN)
+                return;
+            const cbRef = getSupervisionCBRef(lN);
+            const controlBlock = getOtherIedControlElements(this.selectedIed, this.controlType).find(control => cbRef === controlBlockReference(control)) ?? null;
+            if (controlBlock) {
+                const removeEdit = removeSubscriptionSupervision(controlBlock, this.selectedIed);
+                this.dispatchEvent(newEditEvent(removeEdit));
+                this.updateCBRefInfo(this.selectedIed, this.controlType);
+                this.clearListSelections();
+            }
+        }}
+    >
       ${this.getSelectedIedSupLNs(true, false).map(lN => x$1 `
           <mwc-list-item
             ?noninteractive=${!isSupervisionModificationAllowed(this.selectedIed, supervisionLnType[this.controlType])}
@@ -15195,19 +15225,6 @@ class OscdSupervision extends s$h {
             twoline
             data-ln="${identity(lN)}"
             value="${identity(lN)}"
-            @click=${() => {
-            const cbRef = getSupervisionCBRef(lN);
-            const controlBlock = getOtherIedControlElements(this.selectedIed, this.controlType).find(control => cbRef === controlBlockReference(control)) ??
-                null;
-            if (controlBlock) {
-                const removeEdit = removeSubscriptionSupervision(controlBlock, this.selectedIed);
-                this.dispatchEvent(newEditEvent(removeEdit));
-                this.selectedIedSupervisedCBRefs = getSupervisedCBRefs(this.selectedIed, this.controlType);
-                this.requestUpdate();
-            }
-            this.updateCBRefInfo(this.selectedIed, this.controlType);
-            this.clearListSelections();
-        }}
           >
             <mwc-icon
               slot="graphic"
@@ -15247,19 +15264,11 @@ class OscdSupervision extends s$h {
       value="${pathName}"
     >
       <span>${pathName}</span>
-      <span slot="secondary">${secondLineDesc} </span>
+      <span slot="secondary">${secondLineDesc}</span>
       <mwc-icon slot="graphic"
         >${this.controlType === 'GOOSE' ? gooseIcon : smvIcon}</mwc-icon
       >
     </mwc-list-item>`;
-    }
-    renderUnusedControls() {
-        if (!this.selectedIed)
-            return x$1 ``;
-        return x$1 `${getOtherIedControlElements(this.selectedIed, this.controlType)
-            .filter(control => this.selectedIedSubscribedCBRefs.includes(controlBlockReference(control) ?? 'Unknown Control') &&
-            !this.selectedIedSupervisedCBRefs.includes(controlBlockReference(control) ?? 'Unknown Control'))
-            .map(controlElement => x$1 `${this.renderControl(controlElement, true)}`)}`;
     }
     renderUsedControls() {
         if (!this.selectedIed)
@@ -15307,7 +15316,7 @@ class OscdSupervision extends s$h {
             // reset control selection
             this.selectedControl = null;
             this.resetSearchFilters();
-            this.requestUpdate('selectedIed');
+            this.updateCBRefInfo(this.selectedIed, this.controlType);
         }}"
       >
         ${this.iedList.map(ied => {
@@ -15347,17 +15356,6 @@ class OscdSupervision extends s$h {
                 textField.value = '';
         }
     }
-    createSupervision(selectedControl, selectedSupervision, newSupervision) {
-        let edits;
-        if (newSupervision) {
-            this.createNewSupervision(selectedControl);
-        }
-        else {
-            edits = instantiateSubscriptionSupervision(selectedControl, this.selectedIed, selectedSupervision ?? undefined);
-            this.dispatchEvent(newEditEvent(edits));
-        }
-        this.selectedIedSupervisedCBRefs = getSupervisedCBRefs(this.selectedIed, this.controlType);
-    }
     // TODO: restructure in terms of edits
     createNewSupervision(selectedControl) {
         const subscriberIED = this.selectedIed;
@@ -15396,13 +15394,24 @@ class OscdSupervision extends s$h {
             this.selectedControl = selectedControl;
             if (this.selectedControl &&
                 (this.selectedSupervision || this.newSupervision)) {
-                this.createSupervision(this.selectedControl, this.selectedSupervision, this.newSupervision);
+                if (this.newSupervision) {
+                    this.createNewSupervision(this.selectedControl);
+                }
+                else {
+                    const edits = instantiateSubscriptionSupervision(this.selectedControl, this.selectedIed, this.selectedSupervision ?? undefined);
+                    this.dispatchEvent(newEditEvent(edits));
+                }
             }
             this.updateCBRefInfo(this.selectedIed, this.controlType);
             this.clearListSelections();
         }}
     >
-      ${this.renderUnusedControls()}
+      ${!this.selectedIed
+            ? x$1 ``
+            : x$1 `${getOtherIedControlElements(this.selectedIed, this.controlType)
+                .filter(control => this.selectedIedSubscribedCBRefs.includes(controlBlockReference(control) ?? 'Unknown Control') &&
+                !this.selectedIedSupervisedCBRefs.includes(controlBlockReference(control) ?? 'Unknown Control'))
+                .map(controlElement => x$1 `${this.renderControl(controlElement, true)}`)}`}
     </oscd-filtered-list>`;
     }
     renderUnusedSupervisionList() {
@@ -15422,8 +15431,6 @@ class OscdSupervision extends s$h {
       <mwc-list
         id="unusedSupervisions"
         activatable
-        ?noninteractive=${this.selectedIedSupervisedCBRefs.length ===
-            this.selectedIedSubscribedCBRefs.length}
         @selected=${(ev) => {
             const selectedListItem = (ev.target.selected);
             if (!selectedListItem)
@@ -15476,10 +15483,11 @@ class OscdSupervision extends s$h {
             @click=${() => {
             if (this.selectedIed) {
                 const edit = createNewSupervisionLnEvent(this.selectedIed, supervisionType);
-                if (edit)
+                if (edit) {
                     this.dispatchEvent(newEditEvent(edit));
-                // TODO: Why is editCount not sufficient to re-render?
-                this.requestUpdate();
+                    this.updateCBRefInfo(this.selectedIed, this.controlType);
+                    this.clearListSelections();
+                }
             }
         }}
           ></mwc-icon-button>
@@ -15852,15 +15860,6 @@ __decorate([
 __decorate([
     r$3()
 ], OscdSupervision.prototype, "selectedIEDs", void 0);
-__decorate([
-    r$3()
-], OscdSupervision.prototype, "otherIedsCBRefs", void 0);
-__decorate([
-    r$3()
-], OscdSupervision.prototype, "selectedIedSubscribedCBRefs", void 0);
-__decorate([
-    r$3()
-], OscdSupervision.prototype, "selectedIedSupervisedCBRefs", void 0);
 __decorate([
     n$i({ type: String })
 ], OscdSupervision.prototype, "searchUnusedSupervisions", void 0);
