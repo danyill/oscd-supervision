@@ -379,6 +379,12 @@ export default class OscdSupervision extends LitElement {
   @state()
   newSupervision = false;
 
+  @state()
+  instantiatedSupervisionLNs: number = 0;
+
+  @state()
+  availableSupervisionLNs: number = 0;
+
   @query('#unusedControls')
   selectedUnusedControlsListUI!: List;
 
@@ -408,6 +414,18 @@ export default class OscdSupervision extends LitElement {
     this.otherIedsCBRefs = getCBRefs(ied, controlType);
     this.selectedIedSubscribedCBRefs = getSubscribedCBRefs(ied, controlType);
     this.selectedIedSupervisedCBRefs = getSupervisedCBRefs(ied, controlType);
+
+    const maxSupervisionLNs = this.selectedIed
+      ? maxSupervisions(this.selectedIed, controlTag[this.controlType])
+      : 0;
+
+    this.instantiatedSupervisionLNs = getSupervisionLNs(
+      this.selectedIed,
+      this.controlType
+    ).length;
+
+    this.availableSupervisionLNs =
+      maxSupervisionLNs - this.instantiatedSupervisionLNs;
   }
 
   protected firstUpdated(): void {
@@ -602,17 +620,6 @@ export default class OscdSupervision extends LitElement {
     unused = false
   ): TemplateResult {
     if (!this.selectedIed) return html``;
-    const maxSupervisionLNs = this.selectedIed
-      ? maxSupervisions(this.selectedIed, controlTag[this.controlType])
-      : 0;
-
-    const instantiatedSupervisionLNs = getSupervisionLNs(
-      this.selectedIed,
-      this.controlType
-    ).length;
-
-    const availableSupervisionLNs =
-      maxSupervisionLNs - instantiatedSupervisionLNs;
 
     const supervisionType = this.controlType === 'GOOSE' ? 'LGOS' : 'LSVS';
 
@@ -627,12 +634,12 @@ export default class OscdSupervision extends LitElement {
         value="New ${supervisionType} Supervision"
         ?noninteractive=${this.selectedIedSupervisedCBRefs.length ===
           this.selectedIedSubscribedCBRefs.length ||
-        availableSupervisionLNs === 0}
+        this.availableSupervisionLNs === 0}
       >
         <span
           >New ${supervisionType} Supervision
-          ${instantiatedSupervisionLNs > 0
-            ? html`— ${availableSupervisionLNs} available</span>
+          ${this.instantiatedSupervisionLNs > 0
+            ? html`— ${this.availableSupervisionLNs} available</span>
                 </div>`
             : nothing}
         </span>
@@ -1065,18 +1072,6 @@ export default class OscdSupervision extends LitElement {
   }
 
   renderUnusedControlBlocksAndSupervisions(): TemplateResult {
-    const maxSupervisionLNs = this.selectedIed
-      ? maxSupervisions(this.selectedIed, controlTag[this.controlType])
-      : 0;
-
-    const instantiatedSupervisionLNs = getSupervisionLNs(
-      this.selectedIed,
-      this.controlType
-    ).length;
-
-    const availableSupervisionLNs =
-      maxSupervisionLNs - instantiatedSupervisionLNs;
-
     let titleText;
 
     if (this.selectedSupervision) {
@@ -1106,9 +1101,10 @@ export default class OscdSupervision extends LitElement {
           <mwc-icon-button
             id="createNewLN"
             class="greyOutDisabled"
-            title="Create New ${supervisionType} Supervision - ${availableSupervisionLNs} available"
+            title="Create New ${supervisionType} Supervision - ${this
+              .availableSupervisionLNs} available"
             icon="heart_plus"
-            ?disabled=${availableSupervisionLNs <= 0}
+            ?disabled=${this.availableSupervisionLNs <= 0}
             @click=${() => {
               if (this.selectedIed) {
                 const edit = createNewSupervisionLnEdit(
