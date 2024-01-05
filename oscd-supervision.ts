@@ -340,21 +340,18 @@ export default class OscdSupervision extends LitElement {
   /**
    * Control block references for non-selected IEDs
    */
-  @state()
   otherIedsCBRefs: Array<string> = [];
 
   /**
    * Control block references for which selected IED
    * has a subscription in an `ExtRef` element
    */
-  @state()
   selectedIedSubscribedCBRefs: Array<string> = [];
 
   /**
    * Control block references for which the selected IED
    * has an supervision LN referenced to
    */
-  @state()
   selectedIedSupervisedCBRefs: Array<string> = [];
 
   @property({ type: String })
@@ -605,7 +602,6 @@ export default class OscdSupervision extends LitElement {
     unused = false
   ): TemplateResult {
     if (!this.selectedIed) return html``;
-
     const maxSupervisionLNs = this.selectedIed
       ? maxSupervisions(this.selectedIed, controlTag[this.controlType])
       : 0;
@@ -628,10 +624,10 @@ export default class OscdSupervision extends LitElement {
         class="sup-ln mitem"
         graphic="icon"
         data-ln="NEW"
-        value="New ${supervisionType} 'Supervision'"
-        ?noninteractive=${availableSupervisionLNs === 0 ||
-        this.selectedIedSupervisedCBRefs.length ===
-          this.selectedIedSubscribedCBRefs.length}
+        value="New ${supervisionType} Supervision"
+        ?noninteractive=${this.selectedIedSupervisedCBRefs.length ===
+          this.selectedIedSubscribedCBRefs.length ||
+        availableSupervisionLNs === 0}
       >
         <span
           >New ${supervisionType} Supervision
@@ -653,11 +649,35 @@ export default class OscdSupervision extends LitElement {
       this.selectedIed,
       this.controlType
     )[0];
-    return html`<mwc-list class="column mlist deleter">
+    return html`<mwc-list
+      class="column mlist deleter"
+      @selected=${(ev: SingleSelectedEvent) => {
+        const selectedListItem = (<ListItemBase>(<List>ev.target).selected)!;
+        if (!selectedListItem) return;
+        const { ln } = selectedListItem.dataset;
+        if (!ln) return;
+        const lN = find(this.doc, 'LN', ln);
+        if (!lN) return;
+
+        if (
+          isSupervisionModificationAllowed(
+            this.selectedIed!,
+            supervisionLnType[this.controlType]
+          ) &&
+          lN !== firstSupervision
+        ) {
+          const removeEdit: Remove = {
+            node: lN
+          };
+          this.dispatchEvent(newEditEvent(removeEdit));
+          this.updateCBRefInfo(this.selectedIed, this.controlType);
+        }
+
+        this.clearListSelections();
+      }}
+    >
       <!-- show additional item to allow delete button alignment -->
-      ${unused
-        ? html`<mwc-list-item twoline noninteractive></mwc-list-item>`
-        : nothing}
+      ${unused ? html`<mwc-list-item twoline></mwc-list-item>` : nothing}
       ${this.getSelectedIedSupLNs(used, unused)
         .filter(
           supLn =>
@@ -686,26 +706,6 @@ export default class OscdSupervision extends LitElement {
                 slot="graphic"
                 label="Delete supervision logical node"
                 data-lN="${identity(lN)}"
-                @click=${() => {
-                  if (
-                    isSupervisionModificationAllowed(
-                      this.selectedIed!,
-                      supervisionLnType[this.controlType]
-                    ) &&
-                    lN !== firstSupervision
-                  ) {
-                    const removeEdit: Remove = {
-                      node: lN
-                    };
-                    this.dispatchEvent(newEditEvent(removeEdit));
-                    this.selectedIedSupervisedCBRefs = getSupervisedCBRefs(
-                      this.selectedIed,
-                      this.controlType
-                    );
-                  }
-
-                  this.clearListSelections();
-                }}
                 >${lN === firstSupervision ? 'block' : 'delete'}</mwc-icon
               >
             </mwc-list-item>
@@ -734,7 +734,33 @@ export default class OscdSupervision extends LitElement {
   }
 
   private renderUsedSupervisionRemovalIcons(): TemplateResult {
-    return html`<mwc-list class="column remover mlist">
+    return html`<mwc-list
+      class="column remover mlist"
+      @selected=${(ev: SingleSelectedEvent) => {
+        const selectedListItem = (<ListItemBase>(<List>ev.target).selected)!;
+        if (!selectedListItem) return;
+        const { ln } = selectedListItem.dataset;
+        if (!ln) return;
+        const lN = find(this.doc, 'LN', ln);
+        if (!lN) return;
+
+        const cbRef = getSupervisionCBRef(lN);
+        const controlBlock =
+          getOtherIedControlElements(this.selectedIed, this.controlType).find(
+            control => cbRef === controlBlockReference(control)
+          ) ?? null;
+        if (controlBlock) {
+          const removeEdit = removeSubscriptionSupervision(
+            controlBlock,
+            this.selectedIed
+          );
+
+          this.dispatchEvent(newEditEvent(removeEdit));
+          this.updateCBRefInfo(this.selectedIed, this.controlType);
+          this.clearListSelections();
+        }
+      }}
+    >
       ${this.getSelectedIedSupLNs(true, false).map(
         lN => html`
           <mwc-list-item
@@ -746,31 +772,6 @@ export default class OscdSupervision extends LitElement {
             twoline
             data-ln="${identity(lN)}"
             value="${identity(lN)}"
-            @click=${() => {
-              const cbRef = getSupervisionCBRef(lN);
-              const controlBlock =
-                getOtherIedControlElements(
-                  this.selectedIed,
-                  this.controlType
-                ).find(control => cbRef === controlBlockReference(control)) ??
-                null;
-              if (controlBlock) {
-                const removeEdit = removeSubscriptionSupervision(
-                  controlBlock,
-                  this.selectedIed
-                );
-
-                this.dispatchEvent(newEditEvent(removeEdit));
-                this.selectedIedSupervisedCBRefs = getSupervisedCBRefs(
-                  this.selectedIed,
-                  this.controlType
-                );
-                this.requestUpdate();
-              }
-
-              this.updateCBRefInfo(this.selectedIed, this.controlType);
-              this.clearListSelections();
-            }}
           >
             <mwc-icon
               slot="graphic"
@@ -819,28 +820,11 @@ export default class OscdSupervision extends LitElement {
       value="${pathName}"
     >
       <span>${pathName}</span>
-      <span slot="secondary">${secondLineDesc} </span>
+      <span slot="secondary">${secondLineDesc}</span>
       <mwc-icon slot="graphic"
         >${this.controlType === 'GOOSE' ? gooseIcon : smvIcon}</mwc-icon
       >
     </mwc-list-item>`;
-  }
-
-  private renderUnusedControls(): TemplateResult {
-    if (!this.selectedIed) return html``;
-    return html`${getOtherIedControlElements(this.selectedIed, this.controlType)
-      .filter(
-        control =>
-          this.selectedIedSubscribedCBRefs.includes(
-            controlBlockReference(control) ?? 'Unknown Control'
-          ) &&
-          !this.selectedIedSupervisedCBRefs.includes(
-            controlBlockReference(control) ?? 'Unknown Control'
-          )
-      )
-      .map(
-        controlElement => html`${this.renderControl(controlElement, true)}`
-      )}`;
   }
 
   private renderUsedControls(): TemplateResult {
@@ -900,7 +884,7 @@ export default class OscdSupervision extends LitElement {
           // reset control selection
           this.selectedControl = null;
           this.resetSearchFilters();
-          this.requestUpdate('selectedIed');
+          this.updateCBRefInfo(this.selectedIed, this.controlType);
         }}"
       >
         ${this.iedList.map(ied => {
@@ -943,30 +927,6 @@ export default class OscdSupervision extends LitElement {
         );
       if (textField) textField.value = '';
     }
-  }
-
-  private createSupervision(
-    selectedControl: Element,
-    selectedSupervision: Element | null,
-    newSupervision: boolean
-  ): void {
-    let edits: Edit[] | undefined;
-
-    if (newSupervision) {
-      this.createNewSupervision(selectedControl);
-    } else {
-      edits = instantiateSubscriptionSupervision(
-        selectedControl,
-        this.selectedIed,
-        selectedSupervision ?? undefined
-      );
-      this.dispatchEvent(newEditEvent(edits));
-    }
-
-    this.selectedIedSupervisedCBRefs = getSupervisedCBRefs(
-      this.selectedIed,
-      this.controlType
-    );
   }
 
   // TODO: restructure in terms of edits
@@ -1029,18 +989,38 @@ export default class OscdSupervision extends LitElement {
           this.selectedControl &&
           (this.selectedSupervision || this.newSupervision)
         ) {
-          this.createSupervision(
-            this.selectedControl,
-            this.selectedSupervision,
-            this.newSupervision
-          );
+          if (this.newSupervision) {
+            this.createNewSupervision(this.selectedControl);
+          } else {
+            const edits = instantiateSubscriptionSupervision(
+              this.selectedControl,
+              this.selectedIed,
+              this.selectedSupervision ?? undefined
+            );
+            this.dispatchEvent(newEditEvent(edits));
+          }
         }
 
         this.updateCBRefInfo(this.selectedIed, this.controlType);
         this.clearListSelections();
       }}
     >
-      ${this.renderUnusedControls()}
+      ${!this.selectedIed
+        ? html``
+        : html`${getOtherIedControlElements(this.selectedIed, this.controlType)
+            .filter(
+              control =>
+                this.selectedIedSubscribedCBRefs.includes(
+                  controlBlockReference(control) ?? 'Unknown Control'
+                ) &&
+                !this.selectedIedSupervisedCBRefs.includes(
+                  controlBlockReference(control) ?? 'Unknown Control'
+                )
+            )
+            .map(
+              controlElement =>
+                html`${this.renderControl(controlElement, true)}`
+            )}`}
     </oscd-filtered-list>`;
   }
 
@@ -1063,8 +1043,6 @@ export default class OscdSupervision extends LitElement {
       <mwc-list
         id="unusedSupervisions"
         activatable
-        ?noninteractive=${this.selectedIedSupervisedCBRefs.length ===
-        this.selectedIedSubscribedCBRefs.length}
         @selected=${(ev: SingleSelectedEvent) => {
           const selectedListItem = (<ListItemBase>(
             (<OscdFilteredList>ev.target).selected
@@ -1138,10 +1116,12 @@ export default class OscdSupervision extends LitElement {
                   supervisionType
                 );
 
-                if (edit) this.dispatchEvent(newEditEvent(edit));
+                if (edit) {
+                  this.dispatchEvent(newEditEvent(edit));
 
-                // TODO: Why is editCount not sufficient to re-render?
-                this.requestUpdate();
+                  this.updateCBRefInfo(this.selectedIed, this.controlType);
+                  this.clearListSelections();
+                }
               }
             }}
           ></mwc-icon-button>
