@@ -14914,6 +14914,8 @@ class OscdSupervision extends s$h {
         this.selectedControl = null;
         this.selectedSupervision = null;
         this.newSupervision = false;
+        this.instantiatedSupervisionLNs = 0;
+        this.availableSupervisionLNs = 0;
     }
     get iedList() {
         return this.doc
@@ -14939,6 +14941,12 @@ class OscdSupervision extends s$h {
         this.otherIedsCBRefs = getCBRefs(ied, controlType);
         this.selectedIedSubscribedCBRefs = getSubscribedCBRefs(ied, controlType);
         this.selectedIedSupervisedCBRefs = getSupervisedCBRefs(ied, controlType);
+        const maxSupervisionLNs = ied
+            ? maxSupervisions(ied, controlTag[this.controlType])
+            : 0;
+        this.instantiatedSupervisionLNs = getSupervisionLNs(ied, this.controlType).length;
+        this.availableSupervisionLNs =
+            maxSupervisionLNs - this.instantiatedSupervisionLNs;
     }
     firstUpdated() {
         this.updateCBRefInfo(this.selectedIed, this.controlType);
@@ -15098,12 +15106,12 @@ class OscdSupervision extends s$h {
     renderUnusedSupervisionLNs(used = false, unused = false) {
         if (!this.selectedIed)
             return x$1 ``;
-        const maxSupervisionLNs = this.selectedIed
-            ? maxSupervisions(this.selectedIed, controlTag[this.controlType])
-            : 0;
-        const instantiatedSupervisionLNs = getSupervisionLNs(this.selectedIed, this.controlType).length;
-        const availableSupervisionLNs = maxSupervisionLNs - instantiatedSupervisionLNs;
         const supervisionType = this.controlType === 'GOOSE' ? 'LGOS' : 'LSVS';
+        // TODO: Could not get the following noninteractive expression to work
+        // for the "NEW" mwc-list-item
+        //  ?noninteractive=${(this.selectedIedSupervisedCBRefs.length ===
+        //  this.selectedIedSubscribedCBRefs.length) ||
+        //  this.availableSupervisionLNs === 0}
         return x$1 `${this.getSelectedIedSupLNs(used, unused)
             .filter(supLn => this.searchUnusedSupervisionLN(supLn))
             .map(lN => x$1 `${this.renderUnusedSupervisionNode(lN)}`)}
@@ -15113,14 +15121,12 @@ class OscdSupervision extends s$h {
         graphic="icon"
         data-ln="NEW"
         value="New ${supervisionType} Supervision"
-        ?noninteractive=${this.selectedIedSupervisedCBRefs.length ===
-            this.selectedIedSubscribedCBRefs.length ||
-            availableSupervisionLNs === 0}
+        ?noninteractive=${this.availableSupervisionLNs === 0}
       >
         <span
           >New ${supervisionType} Supervision
-          ${instantiatedSupervisionLNs > 0
-            ? x$1 `— ${availableSupervisionLNs} available</span>
+          ${this.instantiatedSupervisionLNs > 0
+            ? x$1 `— ${this.availableSupervisionLNs} available</span>
                 </div>`
             : T$1}
         </span>
@@ -15449,11 +15455,6 @@ class OscdSupervision extends s$h {
     </div>`;
     }
     renderUnusedControlBlocksAndSupervisions() {
-        const maxSupervisionLNs = this.selectedIed
-            ? maxSupervisions(this.selectedIed, controlTag[this.controlType])
-            : 0;
-        const instantiatedSupervisionLNs = getSupervisionLNs(this.selectedIed, this.controlType).length;
-        const availableSupervisionLNs = maxSupervisionLNs - instantiatedSupervisionLNs;
         let titleText;
         if (this.selectedSupervision) {
             titleText = supervisionPath(this.selectedSupervision) ?? '';
@@ -15477,9 +15478,10 @@ class OscdSupervision extends s$h {
           <mwc-icon-button
             id="createNewLN"
             class="greyOutDisabled"
-            title="Create New ${supervisionType} Supervision - ${availableSupervisionLNs} available"
+            title="Create New ${supervisionType} Supervision - ${this
+            .availableSupervisionLNs} available"
             icon="heart_plus"
-            ?disabled=${availableSupervisionLNs <= 0}
+            ?disabled=${this.availableSupervisionLNs <= 0}
             @click=${() => {
             if (this.selectedIed) {
                 const edit = createNewSupervisionLnEvent(this.selectedIed, supervisionType);

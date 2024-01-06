@@ -43,6 +43,8 @@ export default class OscdSupervision extends LitElement {
     selectedControl: Element | null;
     selectedSupervision: Element | null;
     newSupervision: boolean;
+    instantiatedSupervisionLNs: number;
+    availableSupervisionLNs: number;
     selectedUnusedControlsListUI: List;
     selectedUnusedSupervisionsListUI: List;
     selectedUnusedControlUI?: ListItem;
