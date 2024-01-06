@@ -379,10 +379,8 @@ export default class OscdSupervision extends LitElement {
   @state()
   newSupervision = false;
 
-  @state()
   instantiatedSupervisionLNs: number = 0;
 
-  @state()
   availableSupervisionLNs: number = 0;
 
   @query('#unusedControls')
@@ -415,12 +413,12 @@ export default class OscdSupervision extends LitElement {
     this.selectedIedSubscribedCBRefs = getSubscribedCBRefs(ied, controlType);
     this.selectedIedSupervisedCBRefs = getSupervisedCBRefs(ied, controlType);
 
-    const maxSupervisionLNs = this.selectedIed
-      ? maxSupervisions(this.selectedIed, controlTag[this.controlType])
+    const maxSupervisionLNs = ied
+      ? maxSupervisions(ied, controlTag[this.controlType])
       : 0;
 
     this.instantiatedSupervisionLNs = getSupervisionLNs(
-      this.selectedIed,
+      ied,
       this.controlType
     ).length;
 
@@ -623,6 +621,12 @@ export default class OscdSupervision extends LitElement {
 
     const supervisionType = this.controlType === 'GOOSE' ? 'LGOS' : 'LSVS';
 
+    // TODO: Could not get the following noninteractive expression to work
+    // for the "NEW" mwc-list-item
+    //  ?noninteractive=${(this.selectedIedSupervisedCBRefs.length ===
+    //  this.selectedIedSubscribedCBRefs.length) ||
+    //  this.availableSupervisionLNs === 0}
+
     return html`${this.getSelectedIedSupLNs(used, unused)
         .filter(supLn => this.searchUnusedSupervisionLN(supLn))
         .map(lN => html`${this.renderUnusedSupervisionNode(lN)}`)}
@@ -632,9 +636,7 @@ export default class OscdSupervision extends LitElement {
         graphic="icon"
         data-ln="NEW"
         value="New ${supervisionType} Supervision"
-        ?noninteractive=${this.selectedIedSupervisedCBRefs.length ===
-          this.selectedIedSubscribedCBRefs.length ||
-        this.availableSupervisionLNs === 0}
+        ?noninteractive=${this.availableSupervisionLNs === 0}
       >
         <span
           >New ${supervisionType} Supervision

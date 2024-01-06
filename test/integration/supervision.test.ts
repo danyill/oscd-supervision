@@ -330,7 +330,7 @@ describe(pluginName, () => {
         await timeout(standardWait);
 
         const deleteButton = plugin.shadowRoot!.querySelector(
-          'section > .mlist.remover > mwc-list-item[data-ln="GOOSE_Subscriber1>>GOOSE_Supervision> LGOS 2"] > mwc-icon'
+          'section > .mlist.deleter > mwc-list-item[data-ln="GOOSE_Subscriber1>>GOOSE_Supervision> LGOS 2"] > mwc-icon'
         );
         await sendMouse({
           type: 'click',
@@ -513,6 +513,115 @@ describe(pluginName, () => {
         await timeout(standardWait);
         await resetMouseState();
 
+        await visualDiff(plugin, testName(this));
+      });
+
+      it('can carry out a sequence of create, disconnect, delete and connect', async function () {
+        // can create
+        await changeIED(plugin, 'GOOSE_Subscriber1');
+        await timeout(standardWait);
+
+        const createNewSupLn = plugin.shadowRoot!.querySelector(
+          'section.unused mwc-icon-button#createNewLN'
+        );
+        await sendMouse({
+          type: 'click',
+          button: 'left',
+          position: midEl(createNewSupLn!)
+        });
+        await timeout(standardWait);
+
+        // can disconnect
+        const removeButton = plugin.shadowRoot!.querySelector(
+          'section > .mlist.remover > mwc-list-item[data-ln="GOOSE_Subscriber1>>GOOSE_Supervision> LGOS 2"] > mwc-icon'
+        );
+        await sendMouse({
+          type: 'click',
+          button: 'left',
+          position: midEl(removeButton!)
+        });
+        await timeout(standardWait);
+
+        // can delete
+        const deleteUnusedSupLn = plugin.shadowRoot!.querySelector(
+          'section.unused div.available-grouper >  mwc-list.deleter > mwc-list-item[data-ln="GOOSE_Subscriber1>>GOOSE_Supervision> LGOS 2"]'
+        );
+        await sendMouse({
+          type: 'click',
+          button: 'left',
+          position: midEl(deleteUnusedSupLn!)
+        });
+        await timeout(standardWait);
+
+        //  can assign
+        const assignNewSupLn = plugin.shadowRoot!.querySelector(
+          'section.unused div.available-grouper > .filteredList > mwc-list > mwc-list-item[data-ln="GOOSE_Subscriber1>>GOOSE_Supervision> LGOS 3"]'
+        );
+        await sendMouse({
+          type: 'click',
+          button: 'left',
+          position: midEl(assignNewSupLn!)
+        });
+        await timeout(standardWait);
+
+        const existingCb = plugin.shadowRoot!.querySelector(
+          'section.unused oscd-filtered-list#unusedControls > mwc-list-item[data-control="GOOSE_Publisher2>>QB2_Disconnector>GOOSE2"]'
+        );
+        await sendMouse({
+          type: 'click',
+          button: 'left',
+          position: midEl(existingCb!)
+        });
+
+        await timeout(standardWait);
+        await resetMouseState();
+
+        await visualDiff(plugin, testName(this));
+      });
+
+      it('can carry out a sequence of delete, connect and delete, connect', async function () {
+        await changeIED(plugin, 'GOOSE_Subscriber1');
+        await plugin.updateComplete;
+        await timeout(standardWait * 2);
+
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        for await (const _num of [1, 2]) {
+          const deleteButton = plugin.shadowRoot!.querySelector(
+            'section > .mlist.deleter > mwc-list-item[data-ln="GOOSE_Subscriber1>>GOOSE_Supervision> LGOS 2"] > mwc-icon'
+          );
+          await sendMouse({
+            type: 'click',
+            button: 'left',
+            position: midEl(deleteButton!)
+          });
+          await plugin.updateComplete;
+          await timeout(standardWait);
+
+          //  can assign/connect
+          const assignNewSupLn = plugin.shadowRoot!.querySelector(
+            'section.unused div.available-grouper > .filteredList > mwc-list > mwc-list-item[data-ln="NEW"]'
+          );
+          await sendMouse({
+            type: 'click',
+            button: 'left',
+            position: midEl(assignNewSupLn!)
+          });
+          await plugin.updateComplete;
+          await timeout(standardWait);
+
+          const existingCb = plugin.shadowRoot!.querySelector(
+            'section.unused oscd-filtered-list#unusedControls > mwc-list-item[data-control="GOOSE_Publisher2>>QB2_Disconnector>GOOSE2"]'
+          );
+          await sendMouse({
+            type: 'click',
+            button: 'left',
+            position: midEl(existingCb!)
+          });
+          await plugin.updateComplete;
+          await timeout(standardWait);
+        }
+
+        await resetMouseState();
         await visualDiff(plugin, testName(this));
       });
     });
