@@ -636,7 +636,9 @@ export default class OscdSupervision extends LitElement {
         graphic="icon"
         data-ln="NEW"
         value="New ${supervisionType} Supervision"
-        ?noninteractive=${this.availableSupervisionLNs === 0}
+        ?noninteractive=${this.selectedIedSupervisedCBRefs.length ===
+          this.selectedIedSubscribedCBRefs.length ||
+        this.availableSupervisionLNs === 0}
       >
         <span
           >New ${supervisionType} Supervision
