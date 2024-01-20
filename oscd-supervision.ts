@@ -8,8 +8,13 @@ import {
 } from 'lit';
 import { property, query, state } from 'lit/decorators.js';
 
-import { identity, find } from '@openenergytools/scl-lib';
-import { Edit, newEditEvent, Remove } from '@openscd/open-scd-core';
+import {
+  identity,
+  find,
+  sourceControlBlock,
+  instantiateSubscriptionSupervision
+} from '@openenergytools/scl-lib';
+import { newEditEvent, Remove } from '@openscd/open-scd-core';
 
 import '@material/mwc-button';
 import '@material/mwc-formfield';
@@ -34,7 +39,6 @@ import './foundation/components/oscd-filter-button.js';
 
 import {
   compareNames,
-  findControlBlocks,
   getDescriptionAttribute,
   getNameAttribute
 } from './foundation/foundation.js';
@@ -48,8 +52,6 @@ import {
 import {
   controlBlockReference,
   createNewSupervisionLnEvent as createNewSupervisionLnEdit,
-  createNewSupervisionLnInst,
-  instantiateSubscriptionSupervision,
   isSupervisionModificationAllowed,
   maxSupervisions,
   removeSubscriptionSupervision
@@ -77,7 +79,7 @@ function controlBlockDescription(control: Element): {
   const lnInst = lN0!.getAttribute('inst');
 
   const desc = control.getAttribute('desc');
-  const lN0Desc = lN0?.getAttribute(' ');
+  const lN0Desc = lN0?.getAttribute('desc');
 
   const descriptions = [desc, lN0Desc].filter(a => !!a).join(' > ');
 
@@ -210,9 +212,9 @@ function getSubscribedCBRefs(
   const controlBlockRefs: Set<string> = new Set();
   extRefs.forEach(extRef => {
     if (isGOOSEorSMV(extRef, type)) {
-      findControlBlocks(extRef, type).forEach(cb =>
-        controlBlockRefs.add(controlBlockReference(cb) ?? 'Unknown Control')
-      );
+      const cb = sourceControlBlock(extRef);
+      if (cb)
+        controlBlockRefs.add(controlBlockReference(cb) ?? 'Unknown Control');
     }
   });
   return Array.from(controlBlockRefs);
@@ -447,7 +449,7 @@ export default class OscdSupervision extends LitElement {
       }
     }
 
-    if (_changedProperties.has('selectedIed') && this.selectedIed) {
+    if (_changedProperties.has('selectedIed')) {
       this.updateCBRefInfo(this.selectedIed, this.controlType);
       this.clearListSelections();
       this.resetSearchFilters();
@@ -463,13 +465,7 @@ export default class OscdSupervision extends LitElement {
 
   // eslint-disable-next-line class-methods-use-this
   renderUnusedSupervisionNode(lN: Element): TemplateResult {
-    const descriptionLn = getDescriptionAttribute(lN);
-    const cbRef = this.controlType === 'GOOSE' ? 'GoCBRef' : 'SvCBRef';
-    const doi = lN.querySelector(`DOI[name="${cbRef}"`);
-    const descriptionDoi = doi ? getDescriptionAttribute(doi) : undefined;
-    const description = [descriptionLn, descriptionDoi]
-      .filter(d => d !== undefined)
-      .join(' > ');
+    const description = getDescriptionAttribute(lN);
 
     const controlBlockRef = getSupervisionCBRef(lN);
     const invalidControlBlock =
@@ -524,14 +520,7 @@ export default class OscdSupervision extends LitElement {
 
   // eslint-disable-next-line class-methods-use-this
   renderSupervisionListItem(lN: Element, interactive: boolean): TemplateResult {
-    const descriptionLn = getDescriptionAttribute(lN);
-    const cbRef = this.controlType === 'GOOSE' ? 'GoCBRef' : 'SvCBRef';
-    const doi = lN.querySelector(`DOI[name="${cbRef}"`);
-    const descriptionDoi = doi ? getDescriptionAttribute(doi) : undefined;
-
-    const description = [descriptionLn, descriptionDoi]
-      .filter(d => d !== undefined)
-      .join(' > ');
+    const description = getDescriptionAttribute(lN);
 
     return html`
       <mwc-list-item
@@ -663,20 +652,18 @@ export default class OscdSupervision extends LitElement {
       @selected=${(ev: SingleSelectedEvent) => {
         const selectedListItem = (<ListItemBase>(<List>ev.target).selected)!;
         if (!selectedListItem) return;
-        const { ln } = selectedListItem.dataset;
-        if (!ln) return;
-        const lN = find(this.doc, 'LN', ln);
-        if (!lN) return;
+        const { ln } = selectedListItem.dataset!;
+        const supLn = find(this.doc, 'LN', ln!)!;
 
         if (
           isSupervisionModificationAllowed(
             this.selectedIed!,
             supervisionLnType[this.controlType]
           ) &&
-          lN !== firstSupervision
+          supLn !== firstSupervision
         ) {
           const removeEdit: Remove = {
-            node: lN
+            node: supLn
           };
           this.dispatchEvent(newEditEvent(removeEdit));
           this.updateCBRefInfo(this.selectedIed, this.controlType);
@@ -748,12 +735,10 @@ export default class OscdSupervision extends LitElement {
       @selected=${(ev: SingleSelectedEvent) => {
         const selectedListItem = (<ListItemBase>(<List>ev.target).selected)!;
         if (!selectedListItem) return;
-        const { ln } = selectedListItem.dataset;
-        if (!ln) return;
-        const lN = find(this.doc, 'LN', ln);
-        if (!lN) return;
+        const { ln } = selectedListItem.dataset!;
+        const supLn = find(this.doc, 'LN', ln!)!;
 
-        const cbRef = getSupervisionCBRef(lN);
+        const cbRef = getSupervisionCBRef(supLn);
         const controlBlock =
           getOtherIedControlElements(this.selectedIed, this.controlType).find(
             control => cbRef === controlBlockReference(control)
@@ -897,7 +882,7 @@ export default class OscdSupervision extends LitElement {
         }}"
       >
         ${this.iedList.map(ied => {
-          const name = getNameAttribute(ied) ?? 'Unknown Name';
+          const name = getNameAttribute(ied)!;
           const descr = getDescriptionAttribute(ied);
           const type = ied.getAttribute('type');
           const manufacturer = ied.getAttribute('manufacturer');
@@ -938,46 +923,6 @@ export default class OscdSupervision extends LitElement {
     }
   }
 
-  // TODO: restructure in terms of edits
-  private createNewSupervision(selectedControl: Element): void {
-    const subscriberIED = this.selectedIed!;
-    const supervisionType =
-      selectedControl?.tagName === 'GSEControl' ? 'LGOS' : 'LSVS';
-    const newLN = createNewSupervisionLnInst(subscriberIED, supervisionType);
-    let edits: Edit[];
-
-    const parent = subscriberIED.querySelector(
-      `LN[lnClass="${supervisionType}"]`
-    )?.parentElement;
-    if (parent && newLN) {
-      // use Insert edit for supervision LN
-      edits = [
-        {
-          parent,
-          node: newLN,
-          reference:
-            parent!.querySelector(`LN[lnClass="${supervisionType}"]:last-child`)
-              ?.nextElementSibling ?? null
-        }
-      ];
-
-      const instanceNum = newLN?.getAttribute('inst');
-
-      // TODO: Explain To The User That They Have Erred And Can't Make Any New Subscriptions!
-      if (edits) {
-        this.dispatchEvent(newEditEvent(edits));
-        const instantiationEdit = instantiateSubscriptionSupervision(
-          selectedControl,
-          this.selectedIed,
-          parent!.querySelector(
-            `LN[lnClass="${supervisionType}"][inst="${instanceNum}"]`
-          )!
-        );
-        this.dispatchEvent(newEditEvent(instantiationEdit));
-      }
-    }
-  }
-
   private renderUnusedControlList(): TemplateResult {
     return html`<oscd-filtered-list
       id="unusedControls"
@@ -998,16 +943,22 @@ export default class OscdSupervision extends LitElement {
           this.selectedControl &&
           (this.selectedSupervision || this.newSupervision)
         ) {
-          if (this.newSupervision) {
-            this.createNewSupervision(this.selectedControl);
-          } else {
-            const edits = instantiateSubscriptionSupervision(
-              this.selectedControl,
-              this.selectedIed,
-              this.selectedSupervision ?? undefined
-            );
-            this.dispatchEvent(newEditEvent(edits));
-          }
+          const edits = instantiateSubscriptionSupervision(
+            {
+              subscriberIedOrLn: this.newSupervision
+                ? this.selectedIed!
+                : this.selectedSupervision!,
+              sourceControlBlock: this.selectedControl
+            },
+            {
+              newSupervisionLn: this.newSupervision,
+              fixedLnInst: -1,
+              checkEditableSrcRef: false,
+              checkDuplicateSupervisions: true,
+              checkMaxSupervisionLimits: true
+            }
+          );
+          if (edits) this.dispatchEvent(newEditEvent(edits));
         }
 
         this.updateCBRefInfo(this.selectedIed, this.controlType);
