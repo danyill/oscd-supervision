@@ -162,7 +162,7 @@
 			</Server>
 		</AccessPoint>
 	</IED>
-	<IED xmlns="http://www.iec.ch/61850/2003/SCL" name="GOOSE_Subscriber" desc="GOOSE subscriber" manufacturer="Dummy">
+	<IED name="GOOSE_Subscriber" desc="GOOSE subscriber" manufacturer="Dummy">
 		<AccessPoint name="AP1">
 			<Server>
 				<Authentication/>
@@ -191,7 +191,7 @@
 			</Server>
 		</AccessPoint>
 	</IED>
-	<IED xmlns="http://www.iec.ch/61850/2003/SCL" name="GOOSE_Subscriber1" desc="GOOSE subscriber" manufacturer="Dummy">
+	<IED name="GOOSE_Subscriber1" desc="GOOSE subscriber" manufacturer="Dummy">
 		<Services>
 			<SupSubscription maxGo="4" maxSv="3"/>
 		</Services>
@@ -289,7 +289,7 @@
 			</Server>
 		</AccessPoint>
 	</IED>
-	<IED xmlns="http://www.iec.ch/61850/2003/SCL" name="GOOSE_Subscriber2" desc="GOOSE subscriber" manufacturer="Dummy">
+	<IED name="GOOSE_Subscriber2" desc="GOOSE subscriber" manufacturer="Dummy">
 		<Services>
 			<SupSubscription maxGo="4" maxSv="0"/>
 		</Services>
@@ -312,7 +312,7 @@
 			</Server>
 		</AccessPoint>
 	</IED>
-	<IED xmlns="http://www.iec.ch/61850/2003/SCL" name="GOOSE_Subscriber3" desc="GOOSE subscriber" manufacturer="Dummy">
+	<IED name="GOOSE_Subscriber3" desc="GOOSE subscriber" manufacturer="Dummy">
 		<Services>
 			<SupSubscription maxGo="4" maxSv="0"/>
 		</Services>
@@ -410,7 +410,7 @@
 			</Server>
 		</AccessPoint>
 	</IED>
-	<IED xmlns="http://www.iec.ch/61850/2003/SCL" name="GOOSE_Subscriber4" desc="GOOSE subscriber" manufacturer="Dummy">
+	<IED name="GOOSE_Subscriber4" desc="GOOSE subscriber" manufacturer="Dummy">
 		<Services>
 			<SupSubscription maxGo="4" maxSv="3"/>
 		</Services>
@@ -508,7 +508,7 @@
 			</Server>
 		</AccessPoint>
 	</IED>
-	<IED xmlns="http://www.iec.ch/61850/2003/SCL" name="GOOSE_Subscriber5" desc="GOOSE subscriber" manufacturer="Dummy">
+	<IED name="GOOSE_Subscriber5" desc="GOOSE subscriber" manufacturer="Dummy">
 		<Services>
 			<SupSubscription maxGo="4" maxSv="0"/>
 		</Services>
@@ -537,7 +537,7 @@
 			</Server>
 		</AccessPoint>
 	</IED>
-	<IED xmlns="http://www.iec.ch/61850/2003/SCL" name="GOOSE_Subscriber6" desc="GOOSE subscriber" manufacturer="Dummy">
+	<IED name="GOOSE_Subscriber6" desc="GOOSE subscriber" manufacturer="Dummy">
 		<Services>
 			<SupSubscription maxGo="4" maxSv="0"/>
 		</Services>
@@ -566,7 +566,7 @@
 			</Server>
 		</AccessPoint>
 	</IED>
-	<IED xmlns="http://www.iec.ch/61850/2003/SCL" name="GOOSE_Subscriber7" desc="GOOSE subscriber" manufacturer="Dummy">
+	<IED name="GOOSE_Subscriber7" desc="GOOSE subscriber" manufacturer="Dummy">
 		<Services>
 			<SupSubscription maxGo="4" maxSv="0"/>
 		</Services>
@@ -595,12 +595,12 @@
 			</Server>
 		</AccessPoint>
 	</IED>
-	<IED name="GOOSE_Publisher" desc="GOOSE publisher" manufacturer="Dummy">
+	<IED name="GOOSE_Publisher" desc="GOOSE publisher">
 		<AccessPoint name="AP1">
 			<Server>
 				<Authentication/>
 				<LDevice inst="QB2_Disconnector">
-					<LN0 lnClass="LLN0" inst="" lnType="Dummy.LLN0">
+					<LN0 lnClass="LLN0" inst="" lnType="Dummy.LLN0" desc="Datasets and stuff">
 						<DataSet name="GOOSE2sDataSet">
 							<FCDA ldInst="QB2_Disconnector" prefix="" lnClass="CSWI" lnInst="1" doName="Pos" daName="stVal" fc="ST"/>
 							<FCDA ldInst="QB2_Disconnector" prefix="" lnClass="CSWI" lnInst="1" doName="Pos" daName="q" fc="ST"/>

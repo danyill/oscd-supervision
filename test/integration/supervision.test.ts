@@ -82,7 +82,7 @@ async function tryViewportSet(): Promise<void> {
   await setViewport({ width: 1745, height: 1045 });
 }
 
-export async function resetMouseState(): Promise<void> {
+async function resetMouseState(): Promise<void> {
   await timeout(70);
   await resetMouse();
   await sendMouse({ type: 'click', position: [0, 0] });
@@ -175,11 +175,11 @@ describe(pluginName, () => {
         await tryViewportSet();
         resetMouse();
 
-        doc = await fetch('/test/fixtures/GOOSE-2007B4-LGOS.scd')
+        doc = await fetch('/test/fixtures/supervisions.scd')
           .then(response => response.text())
           .then(str => new DOMParser().parseFromString(str, 'application/xml'));
 
-        editor.docName = 'GOOSE-2007B4-LGOS.scd';
+        editor.docName = 'supervisions.scd';
         editor.docs[editor.docName] = doc;
 
         await editor.updateComplete;
@@ -195,11 +195,11 @@ describe(pluginName, () => {
         await tryViewportSet();
         resetMouse();
 
-        doc = await fetch('/test/fixtures/No-IEDs-present.scd')
+        doc = await fetch('/test/fixtures/no-IEDs-present.scd')
           .then(response => response.text())
           .then(str => new DOMParser().parseFromString(str, 'application/xml'));
 
-        editor.docName = 'No-IEDS.scd';
+        editor.docName = 'no-IEDS.scd';
         editor.docs[editor.docName] = doc;
 
         await editor.updateComplete;
@@ -284,6 +284,22 @@ describe(pluginName, () => {
         await resetMouseState();
         await visualDiff(plugin, testName(this));
       });
+
+      it('for a change in supervision to LSVS and back to LGOS shows supervisions', async function () {
+        await changeIED(plugin, 'GOOSE_Subscriber1');
+        await timeout(standardWait);
+
+        await changeControlType(plugin);
+        await plugin.updateComplete;
+        await timeout(standardWait);
+
+        await changeControlType(plugin);
+        await plugin.updateComplete;
+        await timeout(standardWait);
+
+        await resetMouseState();
+        await visualDiff(plugin, testName(this));
+      });
     });
 
     describe('changes supervisions', () => {
@@ -292,11 +308,11 @@ describe(pluginName, () => {
         await tryViewportSet();
         resetMouse();
 
-        doc = await fetch('/test/fixtures/GOOSE-2007B4-LGOS.scd')
+        doc = await fetch('/test/fixtures/supervisions.scd')
           .then(response => response.text())
           .then(str => new DOMParser().parseFromString(str, 'application/xml'));
 
-        editor.docName = 'GOOSE-2007B4-LGOS.scd';
+        editor.docName = 'supervisions.scd';
         editor.docs[editor.docName] = doc;
 
         await editor.updateComplete;
@@ -466,6 +482,7 @@ describe(pluginName, () => {
           button: 'left',
           position: midEl(createNewSupLn!)
         });
+        await plugin.updateComplete;
         await timeout(standardWait);
 
         // can disconnect
@@ -477,6 +494,7 @@ describe(pluginName, () => {
           button: 'left',
           position: midEl(removeButton!)
         });
+        await plugin.updateComplete;
         await timeout(standardWait);
 
         // can delete
@@ -488,6 +506,7 @@ describe(pluginName, () => {
           button: 'left',
           position: midEl(deleteUnusedSupLn!)
         });
+        await plugin.updateComplete;
         await timeout(standardWait);
 
         //  can assign
@@ -499,6 +518,7 @@ describe(pluginName, () => {
           button: 'left',
           position: midEl(assignNewSupLn!)
         });
+        await plugin.updateComplete;
         await timeout(standardWait);
 
         const existingCb = plugin.shadowRoot!.querySelector(
@@ -510,69 +530,7 @@ describe(pluginName, () => {
           position: midEl(existingCb!)
         });
 
-        await timeout(standardWait);
-        await resetMouseState();
-
-        await visualDiff(plugin, testName(this));
-      });
-
-      it('can carry out a sequence of create, disconnect, delete and connect', async function () {
-        // can create
-        await changeIED(plugin, 'GOOSE_Subscriber1');
-        await timeout(standardWait);
-
-        const createNewSupLn = plugin.shadowRoot!.querySelector(
-          'section.unused mwc-icon-button#createNewLN'
-        );
-        await sendMouse({
-          type: 'click',
-          button: 'left',
-          position: midEl(createNewSupLn!)
-        });
-        await timeout(standardWait);
-
-        // can disconnect
-        const removeButton = plugin.shadowRoot!.querySelector(
-          'section > .mlist.remover > mwc-list-item[data-ln="GOOSE_Subscriber1>>GOOSE_Supervision> LGOS 2"] > mwc-icon'
-        );
-        await sendMouse({
-          type: 'click',
-          button: 'left',
-          position: midEl(removeButton!)
-        });
-        await timeout(standardWait);
-
-        // can delete
-        const deleteUnusedSupLn = plugin.shadowRoot!.querySelector(
-          'section.unused div.available-grouper >  mwc-list.deleter > mwc-list-item[data-ln="GOOSE_Subscriber1>>GOOSE_Supervision> LGOS 2"]'
-        );
-        await sendMouse({
-          type: 'click',
-          button: 'left',
-          position: midEl(deleteUnusedSupLn!)
-        });
-        await timeout(standardWait);
-
-        //  can assign
-        const assignNewSupLn = plugin.shadowRoot!.querySelector(
-          'section.unused div.available-grouper > .filteredList > mwc-list > mwc-list-item[data-ln="GOOSE_Subscriber1>>GOOSE_Supervision> LGOS 3"]'
-        );
-        await sendMouse({
-          type: 'click',
-          button: 'left',
-          position: midEl(assignNewSupLn!)
-        });
-        await timeout(standardWait);
-
-        const existingCb = plugin.shadowRoot!.querySelector(
-          'section.unused oscd-filtered-list#unusedControls > mwc-list-item[data-control="GOOSE_Publisher2>>QB2_Disconnector>GOOSE2"]'
-        );
-        await sendMouse({
-          type: 'click',
-          button: 'left',
-          position: midEl(existingCb!)
-        });
-
+        await plugin.updateComplete;
         await timeout(standardWait);
         await resetMouseState();
 
@@ -627,251 +585,207 @@ describe(pluginName, () => {
     });
   });
 
-  // describe('LSVS', () => {
-  //   describe('shows supervisions', () => {
-  //     beforeEach(async () => {
-  //       localStorage.clear();
-  //       await tryViewportSet();
-  //       resetMouse();
-
-  //       doc = await fetch('/test/fixtures/GOOSE-2007B4-LGOS.scd')
-  //         .then(response => response.text())
-  //         .then(str => new DOMParser().parseFromString(str, 'application/xml'));
-
-  //       editor.docName = 'GOOSE-2007B4-LGOS.scd';
-  //       editor.docs[editor.docName] = doc;
-
-  //       await editor.updateComplete;
-  //       await plugin.updateComplete;
-  //     });
-
-  //     afterEach(async () => {
-  //       localStorage.clear();
-  //     });
-
-  //     it('and shows nothing if no IEDs present', async function () {
-  //       localStorage.clear();
-  //       await tryViewportSet();
-  //       resetMouse();
-
-  //       doc = await fetch('/test/fixtures/No-IEDs-present.scd')
-  //         .then(response => response.text())
-  //         .then(str => new DOMParser().parseFromString(str, 'application/xml'));
-
-  //       editor.docName = 'No-IEDS.scd';
-  //       editor.docs[editor.docName] = doc;
-
-  //       await editor.updateComplete;
-  //       await plugin.updateComplete;
-
-  //       await timeout(standardWait);
-  //       await resetMouseState();
-  //       await visualDiff(plugin, testName(this));
-  //     });
-
-  //     it('and shows no supervisions if not present', async function () {
-  //       await timeout(standardWait);
-  //       await resetMouseState();
-  //       await visualDiff(plugin, testName(this));
-  //     });
-
-  //     it('and shows IEDs for selection', async function () {
-  //       const iedFilter = plugin.shadowRoot!.querySelector('#iedFilter')!;
-  //       await sendMouse({
-  //         type: 'click',
-  //         button: 'left',
-  //         position: midEl(iedFilter!)
-  //       });
-  //       await plugin.updateComplete;
-
-  //       const ied = iedFilter.querySelector(
-  //         'mwc-radio-list-item[value="GOOSE_Subscriber1"]'
-  //       );
-  //       await sendMouse({
-  //         type: 'click',
-  //         button: 'left',
-  //         position: midEl(ied!)
-  //       });
-
-  //       await timeout(standardWait);
-  //       await resetMouseState();
-  //       await visualDiff(plugin, testName(this));
-  //     });
-
-  //     it('for a change in IED', async function () {
-  //       await changeIED(plugin, 'GOOSE_Subscriber1');
-
-  //       await plugin.updateComplete;
-  //       await timeout(standardWait);
-  //       await visualDiff(plugin, testName(this));
-  //     });
-
-  //     it('cannot add existing supervisions if at maximum', async function () {
-  //       await changeIED(plugin, 'GOOSE_Subscriber2');
-  //       await timeout(standardWait);
-
-  //       await resetMouseState();
-  //       await visualDiff(plugin, testName(this));
-  //     });
-
-  //     it('for a change in supervision to LSVS shows supervisions', async function () {
-  //       await changeIED(plugin, 'GOOSE_Subscriber1');
-  //       await timeout(standardWait);
-
-  //       await changeControlType(plugin);
-  //       await resetMouseState();
-  //       await visualDiff(plugin, testName(this));
-  //     });
-  //   });
-
-  //   describe('changes supervisions', () => {
-  //     beforeEach(async () => {
-  //       localStorage.clear();
-  //       await tryViewportSet();
-  //       resetMouse();
-
-  //       doc = await fetch('/test/fixtures/GOOSE-2007B4-LGOS.scd')
-  //         .then(response => response.text())
-  //         .then(str => new DOMParser().parseFromString(str, 'application/xml'));
-
-  //       editor.docName = 'GOOSE-2007B4-LGOS.scd';
-  //       editor.docs[editor.docName] = doc;
-
-  //       await editor.updateComplete;
-  //       await plugin.updateComplete;
-  //     });
-
-  //     afterEach(async () => {
-  //       localStorage.clear();
-  //     });
-
-  //     it('can disconnect a used supervision', async function () {
-  //       await changeIED(plugin, 'GOOSE_Subscriber1');
-  //       await timeout(standardWait);
-
-  //       const removeButton = plugin.shadowRoot!.querySelector(
-  //         'section > .mlist.remover > mwc-list-item[data-ln="GOOSE_Subscriber1>>GOOSE_Supervision> LGOS 1"] > mwc-icon'
-  //       );
-  //       await sendMouse({
-  //         type: 'click',
-  //         button: 'left',
-  //         position: midEl(removeButton!)
-  //       });
-
-  //       await timeout(standardWait);
-  //       await resetMouseState();
-  //       await visualDiff(plugin, testName(this));
-  //     });
-
-  //     it('can delete a used supervision', async function () {
-  //       await changeIED(plugin, 'GOOSE_Subscriber1');
-  //       await timeout(standardWait);
-
-  //       const deleteButton = plugin.shadowRoot!.querySelector(
-  //         'section > .mlist.remover > mwc-list-item[data-ln="GOOSE_Subscriber1>>GOOSE_Supervision> LGOS 2"] > mwc-icon'
-  //       );
-  //       await sendMouse({
-  //         type: 'click',
-  //         button: 'left',
-  //         position: midEl(deleteButton!)
-  //       });
-
-  //       await timeout(standardWait);
-  //       await resetMouseState();
-  //       await visualDiff(plugin, testName(this));
-  //     });
-
-  //     it('can create a new supervision', async function () {
-  //       await changeIED(plugin, 'GOOSE_Subscriber1');
-  //       await timeout(standardWait);
-
-  //       const createNewSupLn = plugin.shadowRoot!.querySelector(
-  //         'section.unused mwc-icon-button#createNewLN'
-  //       );
-  //       await sendMouse({
-  //         type: 'click',
-  //         button: 'left',
-  //         position: midEl(createNewSupLn!)
-  //       });
-
-  //       await timeout(standardWait);
-  //       await resetMouseState();
-  //       await visualDiff(plugin, testName(this));
-  //     });
-
-  //     it('can select an existing supervision', async function () {
-  //       await changeIED(plugin, 'GOOSE_Subscriber4');
-  //       await timeout(standardWait);
-
-  //       const createNewSupLn = plugin.shadowRoot!.querySelector(
-  //         'section.unused div.available-grouper > .filteredList > mwc-list > mwc-list-item[data-ln="GOOSE_Subscriber4>>GOOSE_Supervision> LGOS 2"]  '
-  //       );
-  //       await sendMouse({
-  //         type: 'click',
-  //         button: 'left',
-  //         position: midEl(createNewSupLn!)
-  //       });
-  //       await timeout(standardWait * 2);
-
-  //       await resetMouseState();
-  //       await visualDiff(plugin, testName(this));
-  //     });
-
-  //     it('can select and assign an existing supervision', async function () {
-  //       await changeIED(plugin, 'GOOSE_Subscriber4');
-  //       await timeout(standardWait);
-
-  //       const createNewSupLn = plugin.shadowRoot!.querySelector(
-  //         'section.unused div.available-grouper > .filteredList > mwc-list > mwc-list-item[data-ln="GOOSE_Subscriber4>>GOOSE_Supervision> LGOS 2"]'
-  //       );
-  //       await sendMouse({
-  //         type: 'click',
-  //         button: 'left',
-  //         position: midEl(createNewSupLn!)
-  //       });
-  //       await timeout(standardWait * 2);
-
-  //       const existingCb = plugin.shadowRoot!.querySelector(
-  //         'section.unused oscd-filtered-list#unusedControls > mwc-list-item[data-control="GOOSE_Publisher>>QB2_Disconnector>GOOSE2"]'
-  //       );
-  //       await sendMouse({
-  //         type: 'click',
-  //         button: 'left',
-  //         position: midEl(existingCb!)
-  //       });
-
-  //       await timeout(standardWait);
-  //       await resetMouseState();
-  //       await visualDiff(plugin, testName(this));
-  //     });
-
-  //     it('can select and assign a new supervision', async function () {
-  //       await changeIED(plugin, 'GOOSE_Subscriber4');
-  //       await timeout(standardWait);
-
-  //       const createNewSupLn = plugin.shadowRoot!.querySelector(
-  //         'section.unused div.available-grouper > .filteredList > mwc-list > mwc-list-item[data-ln="NEW"]'
-  //       );
-  //       await sendMouse({
-  //         type: 'click',
-  //         button: 'left',
-  //         position: midEl(createNewSupLn!)
-  //       });
-  //       await timeout(standardWait * 2);
-
-  //       const existingCb = plugin.shadowRoot!.querySelector(
-  //         'section.unused oscd-filtered-list#unusedControls > mwc-list-item[data-control="GOOSE_Publisher>>QB2_Disconnector>GOOSE2"]'
-  //       );
-  //       await sendMouse({
-  //         type: 'click',
-  //         button: 'left',
-  //         position: midEl(existingCb!)
-  //       });
-
-  //       await timeout(standardWait);
-  //       await resetMouseState();
-  //       await visualDiff(plugin, testName(this));
-  //     });
-  //   });
-  // });
+  describe('LSVS', () => {
+    //   describe('shows supervisions', () => {
+    //     beforeEach(async () => {
+    //       localStorage.clear();
+    //       await tryViewportSet();
+    //       resetMouse();
+    //       doc = await fetch('/test/fixtures/supervisions.scd')
+    //         .then(response => response.text())
+    //         .then(str => new DOMParser().parseFromString(str, 'application/xml'));
+    //       editor.docName = 'supervisions.scd';
+    //       editor.docs[editor.docName] = doc;
+    //       await editor.updateComplete;
+    //       await plugin.updateComplete;
+    //     });
+    //     afterEach(async () => {
+    //       localStorage.clear();
+    //     });
+    //     it('and shows nothing if no IEDs present', async function () {
+    //       localStorage.clear();
+    //       await tryViewportSet();
+    //       resetMouse();
+    //       doc = await fetch('/test/fixtures/no-IEDs-present.scd')
+    //         .then(response => response.text())
+    //         .then(str => new DOMParser().parseFromString(str, 'application/xml'));
+    //       editor.docName = 'no-IEDS.scd';
+    //       editor.docs[editor.docName] = doc;
+    //       await editor.updateComplete;
+    //       await plugin.updateComplete;
+    //       await timeout(standardWait);
+    //       await resetMouseState();
+    //       await visualDiff(plugin, testName(this));
+    //     });
+    //     it('and shows no supervisions if not present', async function () {
+    //       await timeout(standardWait);
+    //       await resetMouseState();
+    //       await visualDiff(plugin, testName(this));
+    //     });
+    //     it('and shows IEDs for selection', async function () {
+    //       const iedFilter = plugin.shadowRoot!.querySelector('#iedFilter')!;
+    //       await sendMouse({
+    //         type: 'click',
+    //         button: 'left',
+    //         position: midEl(iedFilter!)
+    //       });
+    //       await plugin.updateComplete;
+    //       const ied = iedFilter.querySelector(
+    //         'mwc-radio-list-item[value="GOOSE_Subscriber1"]'
+    //       );
+    //       await sendMouse({
+    //         type: 'click',
+    //         button: 'left',
+    //         position: midEl(ied!)
+    //       });
+    //       await timeout(standardWait);
+    //       await resetMouseState();
+    //       await visualDiff(plugin, testName(this));
+    //     });
+    //     it('for a change in IED', async function () {
+    //       await changeIED(plugin, 'GOOSE_Subscriber1');
+    //       await plugin.updateComplete;
+    //       await timeout(standardWait);
+    //       await visualDiff(plugin, testName(this));
+    //     });
+    //     it('cannot add existing supervisions if at maximum', async function () {
+    //       await changeIED(plugin, 'GOOSE_Subscriber2');
+    //       await timeout(standardWait);
+    //       await resetMouseState();
+    //       await visualDiff(plugin, testName(this));
+    //     });
+    //     it('for a change in supervision to LSVS shows supervisions', async function () {
+    //       await changeIED(plugin, 'GOOSE_Subscriber1');
+    //       await timeout(standardWait);
+    //       await changeControlType(plugin);
+    //       await resetMouseState();
+    //       await visualDiff(plugin, testName(this));
+    //     });
+    //   });
+    //   describe('changes supervisions', () => {
+    //     beforeEach(async () => {
+    //       localStorage.clear();
+    //       await tryViewportSet();
+    //       resetMouse();
+    //       doc = await fetch('/test/fixtures/supervisions.scd')
+    //         .then(response => response.text())
+    //         .then(str => new DOMParser().parseFromString(str, 'application/xml'));
+    //       editor.docName = 'supervisions.scd';
+    //       editor.docs[editor.docName] = doc;
+    //       await editor.updateComplete;
+    //       await plugin.updateComplete;
+    //     });
+    //     afterEach(async () => {
+    //       localStorage.clear();
+    //     });
+    //     it('can disconnect a used supervision', async function () {
+    //       await changeIED(plugin, 'GOOSE_Subscriber1');
+    //       await timeout(standardWait);
+    //       const removeButton = plugin.shadowRoot!.querySelector(
+    //         'section > .mlist.remover > mwc-list-item[data-ln="GOOSE_Subscriber1>>GOOSE_Supervision> LGOS 1"] > mwc-icon'
+    //       );
+    //       await sendMouse({
+    //         type: 'click',
+    //         button: 'left',
+    //         position: midEl(removeButton!)
+    //       });
+    //       await timeout(standardWait);
+    //       await resetMouseState();
+    //       await visualDiff(plugin, testName(this));
+    //     });
+    //     it('can delete a used supervision', async function () {
+    //       await changeIED(plugin, 'GOOSE_Subscriber1');
+    //       await timeout(standardWait);
+    //       const deleteButton = plugin.shadowRoot!.querySelector(
+    //         'section > .mlist.remover > mwc-list-item[data-ln="GOOSE_Subscriber1>>GOOSE_Supervision> LGOS 2"] > mwc-icon'
+    //       );
+    //       await sendMouse({
+    //         type: 'click',
+    //         button: 'left',
+    //         position: midEl(deleteButton!)
+    //       });
+    //       await timeout(standardWait);
+    //       await resetMouseState();
+    //       await visualDiff(plugin, testName(this));
+    //     });
+    //     it('can create a new supervision', async function () {
+    //       await changeIED(plugin, 'GOOSE_Subscriber1');
+    //       await timeout(standardWait);
+    //       const createNewSupLn = plugin.shadowRoot!.querySelector(
+    //         'section.unused mwc-icon-button#createNewLN'
+    //       );
+    //       await sendMouse({
+    //         type: 'click',
+    //         button: 'left',
+    //         position: midEl(createNewSupLn!)
+    //       });
+    //       await timeout(standardWait);
+    //       await resetMouseState();
+    //       await visualDiff(plugin, testName(this));
+    //     });
+    //     it('can select an existing supervision', async function () {
+    //       await changeIED(plugin, 'GOOSE_Subscriber4');
+    //       await timeout(standardWait);
+    //       const createNewSupLn = plugin.shadowRoot!.querySelector(
+    //         'section.unused div.available-grouper > .filteredList > mwc-list > mwc-list-item[data-ln="GOOSE_Subscriber4>>GOOSE_Supervision> LGOS 2"]  '
+    //       );
+    //       await sendMouse({
+    //         type: 'click',
+    //         button: 'left',
+    //         position: midEl(createNewSupLn!)
+    //       });
+    //       await timeout(standardWait * 2);
+    //       await resetMouseState();
+    //       await visualDiff(plugin, testName(this));
+    //     });
+    //     it('can select and assign an existing supervision', async function () {
+    //       await changeIED(plugin, 'GOOSE_Subscriber4');
+    //       await timeout(standardWait);
+    //       const createNewSupLn = plugin.shadowRoot!.querySelector(
+    //         'section.unused div.available-grouper > .filteredList > mwc-list > mwc-list-item[data-ln="GOOSE_Subscriber4>>GOOSE_Supervision> LGOS 2"]'
+    //       );
+    //       await sendMouse({
+    //         type: 'click',
+    //         button: 'left',
+    //         position: midEl(createNewSupLn!)
+    //       });
+    //       await timeout(standardWait * 2);
+    //       const existingCb = plugin.shadowRoot!.querySelector(
+    //         'section.unused oscd-filtered-list#unusedControls > mwc-list-item[data-control="GOOSE_Publisher>>QB2_Disconnector>GOOSE2"]'
+    //       );
+    //       await sendMouse({
+    //         type: 'click',
+    //         button: 'left',
+    //         position: midEl(existingCb!)
+    //       });
+    //       await timeout(standardWait);
+    //       await resetMouseState();
+    //       await visualDiff(plugin, testName(this));
+    //     });
+    //     it('can select and assign a new supervision', async function () {
+    //       await changeIED(plugin, 'GOOSE_Subscriber4');
+    //       await timeout(standardWait);
+    //       const createNewSupLn = plugin.shadowRoot!.querySelector(
+    //         'section.unused div.available-grouper > .filteredList > mwc-list > mwc-list-item[data-ln="NEW"]'
+    //       );
+    //       await sendMouse({
+    //         type: 'click',
+    //         button: 'left',
+    //         position: midEl(createNewSupLn!)
+    //       });
+    //       await timeout(standardWait * 2);
+    //       const existingCb = plugin.shadowRoot!.querySelector(
+    //         'section.unused oscd-filtered-list#unusedControls > mwc-list-item[data-control="GOOSE_Publisher>>QB2_Disconnector>GOOSE2"]'
+    //       );
+    //       await sendMouse({
+    //         type: 'click',
+    //         button: 'left',
+    //         position: midEl(existingCb!)
+    //       });
+    //       await timeout(standardWait);
+    //       await resetMouseState();
+    //       await visualDiff(plugin, testName(this));
+    //     });
+    //   });
+  });
 });
