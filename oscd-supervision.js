@@ -14856,7 +14856,6 @@ function removeSubscriptionSupervision(controlBlock, subscriberIED) {
     });
     return edits;
 }
-// TODO: Daniel has changed this function
 /**
  * Counts the max number of LN instances with supervision allowed for
  * the given control block's type of message.
@@ -14929,6 +14928,25 @@ function createNewSupervisionLnEvent(ied, supervisionType) {
         return edit;
     }
     return null;
+}
+function clearSupervisionReference(ln) {
+    const val = ln.querySelector(':scope > DOI[name="GoCBRef"] > DAI[name="setSrcRef"] > Val, :scope > DOI[name="SvCBRef"] > DAI[name="setSrcRef"] > Val');
+    if (!val || val.textContent === '')
+        return undefined;
+    const edits = [];
+    // remove old element
+    edits.push({
+        node: val
+    });
+    const newValElement = val.cloneNode(true);
+    newValElement.textContent = '';
+    // add new element
+    edits.push({
+        parent: val.parentElement,
+        reference: null,
+        node: newValElement
+    });
+    return edits;
 }
 
 const controlTag = { GOOSE: 'GSEControl', SMV: 'SampledValueControl' };
@@ -15193,7 +15211,7 @@ class OscdSupervision extends s$h {
                 }
             }
         }
-        if (_changedProperties.has('selectedIed')) {
+        if (_changedProperties.has('selectedIEDs')) {
             this.updateCBRefInfo(this.selectedIed, this.controlType);
             this.clearListSelections();
             this.resetSearchFilters();
@@ -15582,7 +15600,17 @@ class OscdSupervision extends s$h {
             this.selectedControl = selectedControl;
             if (this.selectedControl &&
                 (this.selectedSupervision || this.newSupervision)) {
-                const edits = instantiateSubscriptionSupervision({
+                if (this.selectedSupervision) {
+                    //  TODO: We have to remove first to use the scl-lib function
+                    //  We hope to have an upstream overwrite option before too long
+                    //  See https://github.com/OpenEnergyTools/scl-lib/issues/79
+                    const edits = [];
+                    const removalEdit = clearSupervisionReference(this.selectedSupervision);
+                    if (removalEdit)
+                        edits.push(removalEdit);
+                    this.dispatchEvent(newEditEvent(edits));
+                }
+                const instantiationEdit = instantiateSubscriptionSupervision({
                     subscriberIedOrLn: this.newSupervision
                         ? this.selectedIed
                         : this.selectedSupervision,
@@ -15590,12 +15618,12 @@ class OscdSupervision extends s$h {
                 }, {
                     newSupervisionLn: this.newSupervision,
                     fixedLnInst: -1,
-                    checkEditableSrcRef: false,
+                    checkEditableSrcRef: true,
                     checkDuplicateSupervisions: true,
                     checkMaxSupervisionLimits: true
                 });
-                if (edits)
-                    this.dispatchEvent(newEditEvent(edits));
+                if (instantiationEdit)
+                    this.dispatchEvent(newEditEvent(instantiationEdit));
             }
             this.updateCBRefInfo(this.selectedIed, this.controlType);
             this.clearListSelections();

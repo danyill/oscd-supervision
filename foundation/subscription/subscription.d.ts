@@ -42,3 +42,4 @@ export declare function maxSupervisions(subscriberIED: Element, controlBlockType
  * @returns The LN instance or null if no LN instance could be found or created
  */
 export declare function createNewSupervisionLnEvent(ied: Element, supervisionType: 'LGOS' | 'LSVS'): Edit | null;
+export declare function clearSupervisionReference(ln: Element): Edit[] | undefined;
