@@ -143,7 +143,6 @@ export function removeSubscriptionSupervision(
   return edits;
 }
 
-// TODO: Daniel has changed this function
 /**
  * Counts the max number of LN instances with supervision allowed for
  * the given control block's type of message.
@@ -253,4 +252,30 @@ export function createNewSupervisionLnEvent(
     return edit;
   }
   return null;
+}
+
+export function clearSupervisionReference(ln: Element): Edit[] | undefined {
+  const val = ln.querySelector(
+    ':scope > DOI[name="GoCBRef"] > DAI[name="setSrcRef"] > Val, :scope > DOI[name="SvCBRef"] > DAI[name="setSrcRef"] > Val'
+  );
+  if (!val || val.textContent === '') return undefined;
+
+  const edits: Edit[] = [];
+
+  // remove old element
+  edits.push({
+    node: val
+  });
+
+  const newValElement = <Element>val.cloneNode(true);
+  newValElement.textContent = '';
+
+  // add new element
+  edits.push({
+    parent: val.parentElement!,
+    reference: null,
+    node: newValElement
+  });
+
+  return edits;
 }

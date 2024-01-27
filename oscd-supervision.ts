@@ -14,7 +14,7 @@ import {
   sourceControlBlock,
   instantiateSubscriptionSupervision
 } from '@openenergytools/scl-lib';
-import { newEditEvent, Remove } from '@openscd/open-scd-core';
+import { Edit, newEditEvent, Remove } from '@openscd/open-scd-core';
 
 import '@material/mwc-button';
 import '@material/mwc-formfield';
@@ -50,6 +50,7 @@ import {
 } from './foundation/icons.js';
 
 import {
+  clearSupervisionReference,
   controlBlockReference,
   createNewSupervisionLnEvent as createNewSupervisionLnEdit,
   isSupervisionModificationAllowed,
@@ -449,7 +450,7 @@ export default class OscdSupervision extends LitElement {
       }
     }
 
-    if (_changedProperties.has('selectedIed')) {
+    if (_changedProperties.has('selectedIEDs')) {
       this.updateCBRefInfo(this.selectedIed, this.controlType);
       this.clearListSelections();
       this.resetSearchFilters();
@@ -943,7 +944,19 @@ export default class OscdSupervision extends LitElement {
           this.selectedControl &&
           (this.selectedSupervision || this.newSupervision)
         ) {
-          const edits = instantiateSubscriptionSupervision(
+          if (this.selectedSupervision) {
+            //  TODO: We have to remove first to use the scl-lib function
+            //  We hope to have an upstream overwrite option before too long
+            //  See https://github.com/OpenEnergyTools/scl-lib/issues/79
+
+            const edits: Edit[] = [];
+            const removalEdit = clearSupervisionReference(
+              this.selectedSupervision
+            );
+            if (removalEdit) edits.push(removalEdit);
+            this.dispatchEvent(newEditEvent(edits));
+          }
+          const instantiationEdit = instantiateSubscriptionSupervision(
             {
               subscriberIedOrLn: this.newSupervision
                 ? this.selectedIed!
@@ -953,12 +966,13 @@ export default class OscdSupervision extends LitElement {
             {
               newSupervisionLn: this.newSupervision,
               fixedLnInst: -1,
-              checkEditableSrcRef: false,
+              checkEditableSrcRef: true,
               checkDuplicateSupervisions: true,
               checkMaxSupervisionLimits: true
             }
           );
-          if (edits) this.dispatchEvent(newEditEvent(edits));
+          if (instantiationEdit)
+            this.dispatchEvent(newEditEvent(instantiationEdit));
         }
 
         this.updateCBRefInfo(this.selectedIed, this.controlType);
