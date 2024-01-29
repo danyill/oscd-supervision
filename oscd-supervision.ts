@@ -829,24 +829,12 @@ export default class OscdSupervision extends LitElement {
       ${this.getSelectedIedSupLNs(true, false).map(lN => {
         const cbRef = getSupervisionCBRef(lN);
 
-        const controlElement =
-          getOtherIedControlElements(this.selectedIed, this.controlType).find(
-            control => cbRef === controlBlockReference(control)
-          ) ?? null;
+        const controlElement = getOtherIedControlElements(
+          this.selectedIed,
+          this.controlType
+        ).find(control => cbRef === controlBlockReference(control))!;
 
-        return html`${controlElement
-          ? this.renderControl(controlElement)
-          : html`<mwc-list-item
-              noninteractive
-              graphic="icon"
-              data-control="${identity(controlElement)}"
-              value="Control not found"
-            >
-              <span>Control not found</span>
-              <mwc-icon slot="graphic"
-                >${this.controlType === 'GOOSE' ? gooseIcon : smvIcon}</mwc-icon
-              >
-            </mwc-list-item>`}`;
+        return this.renderControl(controlElement);
       })}</mwc-list
     >`;
   }
