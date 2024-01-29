@@ -15508,20 +15508,8 @@ class OscdSupervision extends s$h {
         return x$1 `<mwc-list class="column mlist">
       ${this.getSelectedIedSupLNs(true, false).map(lN => {
             const cbRef = getSupervisionCBRef(lN);
-            const controlElement = getOtherIedControlElements(this.selectedIed, this.controlType).find(control => cbRef === controlBlockReference(control)) ?? null;
-            return x$1 `${controlElement
-                ? this.renderControl(controlElement)
-                : x$1 `<mwc-list-item
-              noninteractive
-              graphic="icon"
-              data-control="${identity(controlElement)}"
-              value="Control not found"
-            >
-              <span>Control not found</span>
-              <mwc-icon slot="graphic"
-                >${this.controlType === 'GOOSE' ? gooseIcon : smvIcon}</mwc-icon
-              >
-            </mwc-list-item>`}`;
+            const controlElement = getOtherIedControlElements(this.selectedIed, this.controlType).find(control => cbRef === controlBlockReference(control));
+            return this.renderControl(controlElement);
         })}</mwc-list
     >`;
     }
