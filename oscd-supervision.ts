@@ -343,18 +343,21 @@ export default class OscdSupervision extends LitElement {
   /**
    * Control block references for non-selected IEDs
    */
+  // @state()
   otherIedsCBRefs: Array<string> = [];
 
   /**
    * Control block references for which selected IED
    * has a subscription in an `ExtRef` element
    */
+  // @state()
   selectedIedSubscribedCBRefs: Array<string> = [];
 
   /**
    * Control block references for which the selected IED
    * has an supervision LN referenced to
    */
+  // @state()
   selectedIedSupervisedCBRefs: Array<string> = [];
 
   @property({ type: String })
@@ -382,8 +385,10 @@ export default class OscdSupervision extends LitElement {
   @state()
   newSupervision = false;
 
+  // @state()
   instantiatedSupervisionLNs: number = 0;
 
+  // @state()
   availableSupervisionLNs: number = 0;
 
   @query('#unusedControls')
@@ -607,6 +612,15 @@ export default class OscdSupervision extends LitElement {
     used = false,
     unused = false
   ): TemplateResult {
+    console.log(
+      'RUSLNs',
+      this.selectedIedSupervisedCBRefs.length,
+      this.selectedIedSubscribedCBRefs.length,
+      this.availableSupervisionLNs,
+      this.selectedSupervision,
+      this.newSupervision
+    );
+
     if (!this.selectedIed) return html``;
 
     const supervisionType = this.controlType === 'GOOSE' ? 'LGOS' : 'LSVS';
@@ -670,9 +684,9 @@ export default class OscdSupervision extends LitElement {
           };
           this.dispatchEvent(newEditEvent(removeEdit));
           this.updateCBRefInfo(this.selectedIed, this.controlType);
+          this.clearListSelections();
+          // this.requestUpdate();
         }
-
-        this.clearListSelections();
       }}
     >
       <!-- show additional item to allow delete button alignment -->
@@ -784,8 +798,18 @@ export default class OscdSupervision extends LitElement {
 
   private renderControl(
     controlElement: Element,
-    unused: boolean = false
+    interactive: boolean = false
   ): TemplateResult {
+    console.log(
+      'RC',
+      this.selectedIedSupervisedCBRefs.length,
+      this.selectedIedSubscribedCBRefs.length,
+      this.availableSupervisionLNs,
+      this.selectedSupervision,
+      this.newSupervision,
+      interactive
+    );
+
     if (!controlElement) return html``;
 
     const { pathName, pathLDeviceAndLN, pathDescription } =
@@ -808,7 +832,7 @@ export default class OscdSupervision extends LitElement {
     }
 
     return html`<mwc-list-item
-      ?noninteractive=${!unused &&
+      ?noninteractive=${!interactive &&
       !this.selectedSupervision &&
       !this.newSupervision}
       graphic="icon"
@@ -915,6 +939,15 @@ export default class OscdSupervision extends LitElement {
   }
 
   private renderUnusedControlList(): TemplateResult {
+    console.log(
+      'RUCL',
+      this.selectedIedSupervisedCBRefs.length,
+      this.selectedIedSubscribedCBRefs.length,
+      this.availableSupervisionLNs,
+      this.selectedSupervision,
+      this.newSupervision
+    );
+
     return html`<oscd-filtered-list
       id="unusedControls"
       @selected=${(ev: SingleSelectedEvent) => {
@@ -1015,10 +1048,7 @@ export default class OscdSupervision extends LitElement {
 
           const { ln } = selectedListItem.dataset;
           const selectedSupervision = find(this.doc, 'LN', ln ?? 'Unknown');
-          if (ln === 'NEW') {
-            this.newSupervision = true;
-          }
-
+          this.newSupervision = ln === 'NEW';
           this.selectedSupervision = selectedSupervision;
           this.selectedControl = null;
         }}
