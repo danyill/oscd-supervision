@@ -6,7 +6,7 @@ import {
   PropertyValues,
   TemplateResult
 } from 'lit';
-import { property, query, state } from 'lit/decorators.js';
+import { property, query, queryAll, state } from 'lit/decorators.js';
 
 import {
   identity,
@@ -343,21 +343,18 @@ export default class OscdSupervision extends LitElement {
   /**
    * Control block references for non-selected IEDs
    */
-  // @state()
   otherIedsCBRefs: Array<string> = [];
 
   /**
    * Control block references for which selected IED
    * has a subscription in an `ExtRef` element
    */
-  // @state()
   selectedIedSubscribedCBRefs: Array<string> = [];
 
   /**
    * Control block references for which the selected IED
    * has an supervision LN referenced to
    */
-  // @state()
   selectedIedSupervisedCBRefs: Array<string> = [];
 
   @property({ type: String })
@@ -385,10 +382,8 @@ export default class OscdSupervision extends LitElement {
   @state()
   newSupervision = false;
 
-  // @state()
   instantiatedSupervisionLNs: number = 0;
 
-  // @state()
   availableSupervisionLNs: number = 0;
 
   @query('#unusedControls')
@@ -397,11 +392,30 @@ export default class OscdSupervision extends LitElement {
   @query('#unusedSupervisions')
   selectedUnusedSupervisionsListUI!: List;
 
+  @queryAll('.mlist.deleter')
+  // TODO: Why???
+  // eslint-disable-next-line no-undef
+  deleteSupervisionsListsUI!: NodeListOf<List>;
+
+  @query('#removeUsedSupervisions')
+  removeUsedSupervisionsListUI!: List;
+
   @query('#unusedControls mwc-list-item[selected]')
   selectedUnusedControlUI?: ListItem;
 
   @query('#unusedSupervisions mwc-list-item[selected]')
   selectedUnusedSupervisionUI?: ListItem;
+
+  @query(
+    '#scrollableArea > section > mwc-list.deleter > mwc-list-item[selected]'
+  )
+  selectedUsedSupervisionDeleteUI?: ListItem;
+
+  @query('#removeUsedSupervisions > mwc-list-item[selected]')
+  selectedUsedSupervisionRemoveUI?: ListItem;
+
+  @query('#unusedSupervisions > mwc-list-item[selected]')
+  selectedUnusedSupervisionDeleteUI?: ListItem;
 
   @query('#filterUnusedSupervisionInput')
   filterUnusedSupervisionInputUI?: TextField;
@@ -467,6 +481,20 @@ export default class OscdSupervision extends LitElement {
       this.updateCBRefInfo(this.selectedIed, this.controlType);
       this.clearListSelections();
     }
+
+    // We dynamically change the interactivity and must call
+    // this method to update the tabindex, otherwise we end up
+    // with an inability to select items.
+    // See layout in https://www.npmjs.com/package/@material/mwc-list#methods
+    if (this.selectedUnusedSupervisionsListUI)
+      this.selectedUnusedSupervisionsListUI.layout();
+
+    if (this.removeUsedSupervisionsListUI)
+      this.removeUsedSupervisionsListUI.layout();
+
+    if (this.deleteSupervisionsListsUI) {
+      this.deleteSupervisionsListsUI.forEach((list: List) => list.layout());
+    }
   }
 
   // eslint-disable-next-line class-methods-use-this
@@ -492,7 +520,7 @@ export default class OscdSupervision extends LitElement {
         ?twoline=${!!description ||
         !!invalidControlBlock ||
         !!notSubscribedControlBlock}
-        class="mitem"
+        class="mitem available"
         graphic="icon"
         ?hasMeta=${invalidControlBlock || notSubscribedControlBlock}
         ?noninteractive=${this.selectedIedSupervisedCBRefs.length ===
@@ -612,31 +640,16 @@ export default class OscdSupervision extends LitElement {
     used = false,
     unused = false
   ): TemplateResult {
-    console.log(
-      'RUSLNs',
-      this.selectedIedSupervisedCBRefs.length,
-      this.selectedIedSubscribedCBRefs.length,
-      this.availableSupervisionLNs,
-      this.selectedSupervision,
-      this.newSupervision
-    );
-
     if (!this.selectedIed) return html``;
 
     const supervisionType = this.controlType === 'GOOSE' ? 'LGOS' : 'LSVS';
-
-    // TODO: Could not get the following noninteractive expression to work
-    // for the "NEW" mwc-list-item
-    //  ?noninteractive=${(this.selectedIedSupervisedCBRefs.length ===
-    //  this.selectedIedSubscribedCBRefs.length) ||
-    //  this.availableSupervisionLNs === 0}
 
     return html`${this.getSelectedIedSupLNs(used, unused)
         .filter(supLn => this.searchUnusedSupervisionLN(supLn))
         .map(lN => html`${this.renderUnusedSupervisionNode(lN)}`)}
       <mwc-list-item
         hasMeta
-        class="sup-ln mitem"
+        class="sup-ln mitem available"
         graphic="icon"
         data-ln="NEW"
         value="New ${supervisionType} Supervision"
@@ -685,7 +698,9 @@ export default class OscdSupervision extends LitElement {
           this.dispatchEvent(newEditEvent(removeEdit));
           this.updateCBRefInfo(this.selectedIed, this.controlType);
           this.clearListSelections();
-          // this.requestUpdate();
+
+          selectedListItem.selected = false;
+          selectedListItem.activated = false;
         }
       }}
     >
@@ -748,6 +763,7 @@ export default class OscdSupervision extends LitElement {
 
   private renderUsedSupervisionRemovalIcons(): TemplateResult {
     return html`<mwc-list
+      id="removeUsedSupervisions"
       class="column remover mlist"
       @selected=${(ev: SingleSelectedEvent) => {
         const selectedListItem = (<ListItemBase>(<List>ev.target).selected)!;
@@ -769,6 +785,9 @@ export default class OscdSupervision extends LitElement {
           this.dispatchEvent(newEditEvent(removeEdit));
           this.updateCBRefInfo(this.selectedIed, this.controlType);
           this.clearListSelections();
+
+          selectedListItem.selected = false;
+          selectedListItem.activated = false;
         }
       }}
     >
@@ -800,16 +819,6 @@ export default class OscdSupervision extends LitElement {
     controlElement: Element,
     interactive: boolean = false
   ): TemplateResult {
-    console.log(
-      'RC',
-      this.selectedIedSupervisedCBRefs.length,
-      this.selectedIedSubscribedCBRefs.length,
-      this.availableSupervisionLNs,
-      this.selectedSupervision,
-      this.newSupervision,
-      interactive
-    );
-
     if (!controlElement) return html``;
 
     const { pathName, pathLDeviceAndLN, pathDescription } =
@@ -939,15 +948,6 @@ export default class OscdSupervision extends LitElement {
   }
 
   private renderUnusedControlList(): TemplateResult {
-    console.log(
-      'RUCL',
-      this.selectedIedSupervisedCBRefs.length,
-      this.selectedIedSubscribedCBRefs.length,
-      this.availableSupervisionLNs,
-      this.selectedSupervision,
-      this.newSupervision
-    );
-
     return html`<oscd-filtered-list
       id="unusedControls"
       @selected=${(ev: SingleSelectedEvent) => {
@@ -996,6 +996,10 @@ export default class OscdSupervision extends LitElement {
           );
           if (instantiationEdit)
             this.dispatchEvent(newEditEvent(instantiationEdit));
+
+          selectedListItem.selected = false;
+          selectedListItem.activated = false;
+          this.clearListSelections();
         }
 
         this.updateCBRefInfo(this.selectedIed, this.controlType);
@@ -1045,6 +1049,12 @@ export default class OscdSupervision extends LitElement {
             (<OscdFilteredList>ev.target).selected
           ))!;
           if (!selectedListItem) return;
+
+          // if user has allready selected a control
+          if (this.selectedUnusedControlUI) {
+            this.selectedUnusedControlUI.selected = false;
+            this.selectedUnusedControlUI.activated = false;
+          }
 
           const { ln } = selectedListItem.dataset;
           const selectedSupervision = find(this.doc, 'LN', ln ?? 'Unknown');
@@ -1368,7 +1378,7 @@ export default class OscdSupervision extends LitElement {
       --mdc-theme-text-disabled-on-light: var(--disabledVisibleElement);
     }
 
-    .sup-ln.mitem[data-ln='NEW'][noninteractive] {
+    .mitem.available[noninteractive] {
       color: var(--disabledVisibleElement);
     }
 

@@ -205,7 +205,7 @@ describe(pluginName, () => {
         await editor.updateComplete;
         await plugin.updateComplete;
 
-        await timeout(standardWait);
+        await timeout(standardWait * 2);
         await resetMouseState();
         await visualDiff(plugin, testName(this));
       });
