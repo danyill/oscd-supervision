@@ -15044,12 +15044,6 @@ function getSubscribedCBRefs(ied, type) {
     return Array.from(controlBlockRefs);
 }
 /**
- * Gets GSEControl or SampledValueControl elements for the selected IED.
- *
- * @param controlType either 'GOOSE' or 'SMV'
- * @returns array of GSEControl or SampledValueControl elements
- */
-/**
  * Gets GSEControl or SampledValueControl elements _except_ for the
  * selected IED.
  * @param ied - Selected IED SCL element.
