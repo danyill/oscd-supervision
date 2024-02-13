@@ -36,8 +36,6 @@ import type { OscdFilteredList } from '@openscd/oscd-filtered-list';
 
 import './foundation/components/oscd-filter-button.js';
 
-// import { canInstantiateSubscriptionSupervision } from '@openenergytools/scl-lib';
-
 import {
   compareNames,
   getDescriptionAttribute,
@@ -219,13 +217,6 @@ function getSubscribedCBRefs(
   });
   return Array.from(controlBlockRefs);
 }
-
-/**
- * Gets GSEControl or SampledValueControl elements for the selected IED.
- *
- * @param controlType either 'GOOSE' or 'SMV'
- * @returns array of GSEControl or SampledValueControl elements
- */
 
 /**
  * Gets GSEControl or SampledValueControl elements _except_ for the
