@@ -1,4 +1,6 @@
-import { Edit } from '@openscd/open-scd-core';
+import { canRemoveSupervision } from '@openenergytools/scl-lib/dist/tLN/supervision/removeSupervision.js';
+
+import type { Edit } from '@openscd/open-scd-core';
 
 import { minAvailableLogicalNodeInstance } from '../foundation.js';
 
@@ -44,103 +46,10 @@ export function isSupervisionModificationAllowed(
   // no supervision logical nodes => no new supervision possible
   if (firstSupervisionLN === null) return false;
 
-  // check if allowed to modify based on first instance properties
-  const supervisionName = supervisionType === 'LGOS' ? 'GoCBRef' : 'SvCBRef';
-  const instValKind = firstSupervisionLN!
-    .querySelector(`DOI[name="${supervisionName}"]>DAI[name="setSrcRef"]`)
-    ?.getAttribute('valKind');
-  const instValImport = firstSupervisionLN!
-    .querySelector(`DOI[name="${supervisionName}"]>DAI[name="setSrcRef"]`)
-    ?.getAttribute('valImport');
-
-  if (
-    (instValKind === 'RO' || instValKind === 'Conf') &&
-    instValImport === 'true'
-  )
-    return true;
-
-  // check if allowed to modify based on DataTypeTemplates for first instance
-  const rootNode = firstSupervisionLN?.ownerDocument;
-  const lNodeType = firstSupervisionLN.getAttribute('lnType');
-  const lnClass = firstSupervisionLN.getAttribute('lnClass');
-  const dObj = rootNode.querySelector(
-    `DataTypeTemplates > LNodeType[id="${lNodeType}"][lnClass="${lnClass}"] > DO[name="${
-      lnClass === 'LGOS' ? 'GoCBRef' : 'SvCBRef'
-    }"]`
-  );
-  if (dObj) {
-    const dORef = dObj.getAttribute('type');
-    const daObj = rootNode.querySelector(
-      `DataTypeTemplates > DOType[id="${dORef}"] > DA[name="setSrcRef"]`
-    );
-    if (daObj) {
-      return (
-        (daObj.getAttribute('valKind') === 'Conf' ||
-          daObj.getAttribute('valKind') === 'RO') &&
-        daObj.getAttribute('valImport') === 'true'
-      );
-    }
-  }
-  // definition missing
-  return false;
-}
-
-// NOTE: Have removed the LN0 selector here.
-
-/**
- * Return Val elements within an LGOS/LSVS instance for a particular IED and control block type.
- * @param ied - IED SCL element.
- * @param cbTagName - Either GSEControl or (defaults to) SampledValueControl.
- * @returns an Element array of Val SCL elements within an LGOS/LSVS node.
- */
-function getSupervisionCbRefs(ied: Element, cbTagName: string): Element[] {
-  const supervisionType = cbTagName === 'GSEControl' ? 'LGOS' : 'LSVS';
-  const supervisionName = supervisionType === 'LGOS' ? 'GoCBRef' : 'SvCBRef';
-  const selectorString = `LN[lnClass="${supervisionType}"]>DOI[name="${supervisionName}"]>DAI[name="setSrcRef"]>Val`;
-  return Array.from(ied.querySelectorAll(selectorString));
-}
-
-/**
- * Return an array with a single Remove action to delete the supervision element
- * for the given GOOSE/SMV message and subscriber IED.
- *
- * @param controlBlock The GOOSE or SMV message element
- * @param subscriberIED The subscriber IED
- * @returns an empty array if removing the supervision is not possible or an array
- * with a single Delete action that removes the LN if it was created in OpenSCD
- * or only the supervision structure DOI/DAI/Val if it was created by the user.
- */
-export function removeSubscriptionSupervision(
-  controlBlock: Element | undefined,
-  subscriberIED: Element | undefined
-): Edit[] {
-  if (!controlBlock || !subscriberIED) return [];
-  const valElement = getSupervisionCbRefs(
-    subscriberIED,
-    controlBlock.tagName
-  ).find(val => val.textContent === controlBlockReference(controlBlock));
-  if (!valElement) return [];
-
-  const daiElement = valElement.closest('DAI');
-
-  const edits = [];
-
-  // remove old element
-  edits.push({
-    node: valElement
+  return canRemoveSupervision(firstSupervisionLN, {
+    removeSupervisionLn: true,
+    checkSubscription: false
   });
-
-  const newValElement = <Element>valElement.cloneNode(true);
-  newValElement.textContent = '';
-
-  // add new element
-  edits.push({
-    parent: daiElement!,
-    reference: null,
-    node: newValElement
-  });
-
-  return edits;
 }
 
 /**
@@ -252,30 +161,4 @@ export function createNewSupervisionLnEvent(
     return edit;
   }
   return null;
-}
-
-export function clearSupervisionReference(ln: Element): Edit[] | undefined {
-  const val = ln.querySelector(
-    ':scope > DOI[name="GoCBRef"] > DAI[name="setSrcRef"] > Val, :scope > DOI[name="SvCBRef"] > DAI[name="setSrcRef"] > Val'
-  );
-  if (!val || val.textContent === '') return undefined;
-
-  const edits: Edit[] = [];
-
-  // remove old element
-  edits.push({
-    node: val
-  });
-
-  const newValElement = <Element>val.cloneNode(true);
-  newValElement.textContent = '';
-
-  // add new element
-  edits.push({
-    parent: val.parentElement!,
-    reference: null,
-    node: newValElement
-  });
-
-  return edits;
 }

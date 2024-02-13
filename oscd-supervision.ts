@@ -12,9 +12,10 @@ import {
   identity,
   find,
   sourceControlBlock,
-  instantiateSubscriptionSupervision
+  instantiateSubscriptionSupervision,
+  removeSupervision
 } from '@openenergytools/scl-lib';
-import { Edit, newEditEvent, Remove } from '@openscd/open-scd-core';
+import { Edit, newEditEvent } from '@openscd/open-scd-core';
 
 import '@material/mwc-button';
 import '@material/mwc-formfield';
@@ -50,12 +51,10 @@ import {
 } from './foundation/icons.js';
 
 import {
-  clearSupervisionReference,
   controlBlockReference,
   createNewSupervisionLnEvent as createNewSupervisionLnEdit,
   isSupervisionModificationAllowed,
-  maxSupervisions,
-  removeSubscriptionSupervision
+  maxSupervisions
 } from './foundation/subscription/subscription.js';
 
 import type { SelectedItemsChangedEvent } from './foundation/components/oscd-filter-button.js';
@@ -685,23 +684,17 @@ export default class OscdSupervision extends LitElement {
         const { ln } = selectedListItem.dataset!;
         const supLn = find(this.doc, 'LN', ln!)!;
 
-        if (
-          isSupervisionModificationAllowed(
-            this.selectedIed!,
-            supervisionLnType[this.controlType]
-          ) &&
-          supLn !== firstSupervision
-        ) {
-          const removeEdit: Remove = {
-            node: supLn
-          };
-          this.dispatchEvent(newEditEvent(removeEdit));
-          this.updateCBRefInfo(this.selectedIed, this.controlType);
-          this.clearListSelections();
+        const deleteEdit = removeSupervision(supLn, {
+          removeSupervisionLn: true,
+          checkSubscription: false
+        });
 
-          selectedListItem.selected = false;
-          selectedListItem.activated = false;
-        }
+        if (deleteEdit) this.dispatchEvent(newEditEvent(deleteEdit));
+        this.updateCBRefInfo(this.selectedIed, this.controlType);
+        this.clearListSelections();
+
+        selectedListItem.selected = false;
+        selectedListItem.activated = false;
       }}
     >
       <!-- show additional item to allow delete button alignment -->
@@ -777,12 +770,12 @@ export default class OscdSupervision extends LitElement {
             control => cbRef === controlBlockReference(control)
           ) ?? null;
         if (controlBlock) {
-          const removeEdit = removeSubscriptionSupervision(
-            controlBlock,
-            this.selectedIed
-          );
+          const removeEdit = removeSupervision(supLn, {
+            removeSupervisionLn: false,
+            checkSubscription: false
+          });
 
-          this.dispatchEvent(newEditEvent(removeEdit));
+          if (removeEdit) this.dispatchEvent(newEditEvent(removeEdit));
           this.updateCBRefInfo(this.selectedIed, this.controlType);
           this.clearListSelections();
 
@@ -973,9 +966,12 @@ export default class OscdSupervision extends LitElement {
             //  See https://github.com/OpenEnergyTools/scl-lib/issues/79
 
             const edits: Edit[] = [];
-            const removalEdit = clearSupervisionReference(
-              this.selectedSupervision
-            );
+
+            const removalEdit = removeSupervision(this.selectedSupervision, {
+              removeSupervisionLn: false,
+              checkSubscription: false
+            });
+
             if (removalEdit) edits.push(removalEdit);
             this.dispatchEvent(newEditEvent(edits));
           }
