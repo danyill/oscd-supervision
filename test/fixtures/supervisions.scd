@@ -412,7 +412,7 @@
 	</IED>
 	<IED name="GOOSE_Subscriber4" desc="GOOSE subscriber" manufacturer="Dummy">
 		<Services>
-			<SupSubscription maxGo="4" maxSv="3"/>
+			<SupSubscription maxGo="5" maxSv="3"/>
 		</Services>
 		<AccessPoint name="AP1">
 			<Server>
@@ -464,7 +464,21 @@
 					</LN>
 					<LN lnClass="LGOS" inst="2" lnType="Dummy.LGOS" desc="Important1">
 						<Private type="OpenSCD.create"/>
-						<DOI name="GoCBRef" desc="Important2">
+						<DOI name="St">
+							<DAI name="d">
+								<Val>Important2</Val>
+							</DAI>
+						</DOI>
+						<DOI name="GoCBRef">
+							<DAI name="setSrcRef">
+								<Val></Val>
+							</DAI>
+						</DOI>
+					</LN>
+					<LN lnClass="LGOS" inst="3" lnType="Dummy.LGOS" desc="Important1">
+						<Private type="OpenSCD.create"/>
+						<DOI name="St" desc="Important3"></DOI>
+						<DOI name="GoCBRef">
 							<DAI name="setSrcRef">
 								<Val></Val>
 							</DAI>

@@ -304,6 +304,21 @@ function getCBRefs(
   );
 }
 
+function getSupervisionLnDescription(supLn: Element): string {
+  const descriptionLn = getDescriptionAttribute(supLn);
+  const doi = supLn.querySelector(`:scope > DOI[name="St"]`);
+
+  let doiDesc = doi ? getDescriptionAttribute(doi) : undefined;
+
+  if (!doiDesc) {
+    doiDesc =
+      doi?.querySelector(':scope > DAI[name="d"] > Val')?.textContent ??
+      undefined;
+  }
+
+  return [descriptionLn, doiDesc].filter(d => d !== undefined).join(' > ');
+}
+
 /**
  * Editor to allow allocation of GOOSE and SMV supervision LNs
  * to control blocks
@@ -489,7 +504,7 @@ export default class OscdSupervision extends LitElement {
 
   // eslint-disable-next-line class-methods-use-this
   renderUnusedSupervisionNode(lN: Element): TemplateResult {
-    const description = getDescriptionAttribute(lN);
+    const description = getSupervisionLnDescription(lN);
 
     const controlBlockRef = getSupervisionCBRef(lN);
     const invalidControlBlock =
@@ -544,7 +559,7 @@ export default class OscdSupervision extends LitElement {
 
   // eslint-disable-next-line class-methods-use-this
   renderSupervisionListItem(lN: Element, interactive: boolean): TemplateResult {
-    const description = getDescriptionAttribute(lN);
+    const description = getSupervisionLnDescription(lN);
 
     return html`
       <mwc-list-item
@@ -610,14 +625,7 @@ export default class OscdSupervision extends LitElement {
   }
 
   searchUnusedSupervisionLN(supLn: Element): boolean {
-    const descriptionLn = getDescriptionAttribute(supLn);
-    const cbRef = this.controlType === 'GOOSE' ? 'GoCBRef' : 'SvCBRef';
-    const doi = supLn.querySelector(`DOI[name="${cbRef}"`);
-    const descriptionDoi = doi ? getDescriptionAttribute(doi) : undefined;
-    const description = [descriptionLn, descriptionDoi]
-      .filter(d => d !== undefined)
-      .join(' > ');
-
+    const description = getSupervisionLnDescription(supLn);
     const supervisionSearchText = `${identity(supLn)} ${description}`;
 
     return (
