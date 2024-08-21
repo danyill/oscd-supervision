@@ -532,6 +532,8 @@ export default class OscdSupervision extends LitElement {
         this.selectedIedSubscribedCBRefs.length}
         data-ln="${identity(lN)}"
         value="${identity(lN)}"
+        title="${supervisionPath(lN)}
+${description ?? ''}"
       >
         <span>${supervisionPath(lN)}</span>
         ${description || invalidControlBlock || notSubscribedControlBlock
@@ -569,6 +571,8 @@ export default class OscdSupervision extends LitElement {
         graphic="icon"
         data-ln="${identity(lN)}"
         value="${identity(lN)}"
+        title="${supervisionPath(lN)}
+${description || ''}"
       >
         <span>${supervisionPath(lN)}</span>
         ${description
@@ -746,7 +750,7 @@ export default class OscdSupervision extends LitElement {
     if (usedSupervisions.length === 0)
       return html`<h3>No supervision nodes used</h3>`;
 
-    return html`<mwc-list class="column mlist">
+    return html`<mwc-list class="column mlist suplist">
       ${usedSupervisions.map(
         lN => html`${this.renderSupervisionListItem(lN, false)}`
       )}
@@ -840,6 +844,8 @@ export default class OscdSupervision extends LitElement {
       ?twoline=${!!pathDescription || !!datasetName}
       data-control="${identity(controlElement)}"
       value="${pathName}"
+      title="${pathName}
+${secondLineDesc}"
     >
       <span>${pathName}</span>
       <span slot="secondary">${secondLineDesc}</span>
@@ -852,7 +858,7 @@ export default class OscdSupervision extends LitElement {
   private renderUsedControls(): TemplateResult {
     if (!this.selectedIed) return html``;
 
-    return html`<mwc-list class="column mlist">
+    return html`<mwc-list class="column mlist conlist">
       ${this.getSelectedIedSupLNs(true, false).map(lN => {
         const cbRef = getSupervisionCBRef(lN);
 
@@ -942,6 +948,7 @@ export default class OscdSupervision extends LitElement {
   private renderUnusedControlList(): TemplateResult {
     return html`<oscd-filtered-list
       id="unusedControls"
+      class="conlist"
       @selected=${(ev: SingleSelectedEvent) => {
         const selectedListItem = (<ListItemBase>(
           (<OscdFilteredList>ev.target).selected
@@ -1022,7 +1029,7 @@ export default class OscdSupervision extends LitElement {
 
   private renderUnusedSupervisionList(): TemplateResult {
     return html`<div class="filteredList">
-      <div class="searchField mitem sup-ln">
+      <div class="searchField mitem sup-ln suplist">
         <abbr title="Search"
           ><mwc-textfield
             id="filterUnusedSupervisionInput"
@@ -1429,6 +1436,11 @@ export default class OscdSupervision extends LitElement {
       display: flex;
       flex: 1 1 48%;
       flex-direction: column;
+    }
+
+    .conlist,
+    .suplist {
+      overflow: hidden;
     }
 
     #createNewLN {
