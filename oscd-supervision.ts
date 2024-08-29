@@ -233,7 +233,9 @@ function getOtherIedControlElements(
   const iedName = getNameAttribute(ied!);
   return Array.from(
     ied.ownerDocument.querySelectorAll(`LN0 > ${controlTag[controlType]}`)
-  ).filter(cb => getNameAttribute(cb.closest('IED')!) !== iedName);
+  )
+    .filter(cb => getNameAttribute(cb.closest('IED')!) !== iedName)
+    .sort((a, b) => `${identity(a)}`.localeCompare(`${identity(b)}`));
 }
 
 /**
@@ -250,7 +252,7 @@ function getSupervisionLNs(
 
   return Array.from(
     ied.querySelectorAll(`LN[lnClass="${supervisionLnType[controlType]}"]`)
-  );
+  ).sort((a, b) => `${identity(a)}`.localeCompare(`${identity(b)}`));
 }
 
 /**
