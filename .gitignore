@@ -15,6 +15,7 @@
 
 # IDE
 /.idea
+*.iml
 
 # failed screenshots
 test/screenshots/failed/

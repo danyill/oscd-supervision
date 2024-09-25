@@ -1,0 +1,86 @@
+= Allowing Supervision Modifications
+include::partial$base.adoc[]
+
+The steps required for manual configuration are explained below.
+Users should ensure that any modifications they make are compatible with their IEDs and ICT tool.
+
+The supervision plugin requires that either on the first instantiated supervision (`LN`) or on the referenced `DataTypeTemplate` (`LNodeType`) that the `setSrcRef` data attribute for the `GoCBRef` data object is configured to allow modifications with:
+
+* `valImport="true"`
+* `valKind` set to either `"RO"`  or `"Conf"`
+
+== Examples
+
+=== Set on the Supervision Node
+
+An example DOI within a GOOSE supervision logical node is shown below:
+
+.Setting `valImport` and `valKind` on `setSrcRef` for a `DOI`
+[source,xml,subs=+quotes]
+----
+<LN lnType="someTypeReference" lnClass="LGOS" inst="1" prefix="">
+  ...
+  <DOI name="GoCBRef">
+    ...
+    <DAI name="setSrcRef" valKind="RO" valImport="true"> <!--1-->
+      <Val>XAT_288_MU1MUGO/LLN0.AdjBusCouplerInd</Val> <!--2-->
+    </DAI>
+  </DOI>
+</LN>
+----
+<1> Note that `valKind` and `valImport` are set
+<2> An object reference which the plugin changes to assign a supervision
+
+=== Set on the Supervision Type
+
+Alternatively these can be specified on the type rather than the instantiated LN.
+
+For a supervision `LN` which refers to a data type:
+
+.An `LGOS` supervision node referring to a type
+[source,xml]
+----
+<LN lnType="someTypeReference" <!--.-->
+  lnClass="LGOS" inst="1" prefix="">
+  ...
+  <DOI name="GoCBRef">
+    <DAI name="setSrcRef"> <!--.-->
+      <Val>XAT_288_MU1MUGO/LLN0.AdjBusCouplerInd</Val>
+    </DAI>
+  </DOI>
+ ...
+</LN>
+----
+<.> Reference to an `LNodeType`
+<.> No `valKind` or `valImport` set
+
+The `LN` refers to an `LNodeType` which then refers to a `DOType`
+
+.An `LNodeType` for an `LGOS` supervision node
+[source,xml]
+----
+<LNodeType id="someTypeReference" lnClass="LGOS">
+  ...
+  <DO name="GoCBRef" type="SomeDOType"/> <!--.-->
+  ...
+</LNodeType>
+----
+<.> Reference to data object type
+
+On the `DOType` reference typically `valKind` and `valImport` are configured.
+
+.A `DOType` referenced by an `LGOS` `LNodeType`
+[source,xml]
+----
+<DOType id="SomeDOType" cdc="ORG">
+  ...
+  <DA name="setSrcRef" fc="SP" dchg="true" bType="ObjRef"
+      valKind="RO" valImport="true"/> <!--.-->
+  ...
+</DOType>
+----
+<.> `valImport` and `valKind` set
+
+For some manufacturers, it is possible to set `valKind` and `valImport` on the type for an IED and this will be correctly written to an IED and not removed by ICT tools.
+
+TIP: Care should be taken to make sure the `DOType` only refers to the intended supervision nodes and creating a separate type is recommended if the same type is used in other places where an SCT should not be allowed to make modifications.
