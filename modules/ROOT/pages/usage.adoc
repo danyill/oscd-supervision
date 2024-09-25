@@ -1,0 +1,64 @@
+= Usage
+include::partial$base.adoc[]
+
+== Select an IED
+
+The user can click the IED button image:select_ied.png[width=20] the top left to change the selected IED and the image:change_cb_type_goose.png[width=20] or image:change_cb_type_smv.png[width=20] button to change supervision type.
+
+If an exclamation icon is shown in the top right and the controls for making changes are disabled, then the IED does not support making modifications.
+Refer to xref:allowing_supervision_modifications.adoc[] for more details on how to modify a template file.
+
+.No Modifications Allowed
+image::no_modifications.png[xref=image$no_modifications.png]
+
+== Change Supervision Assignment
+
+=== Assign Supervisions
+
+In the bottom part of the screen either click an existing supervision node (❶) or the bottom item to create a new one (❷) and then select a control block (❸).
+
+
+.Assign or Create a Supervision
+image::assign_supervision.png[]
+
+=== Remove Assignment
+
+To remove assignment, click on the image:unassign_supervision.png[width=20].
+This will unlink the supervision and control block, moving them to the unallocated section of the plugin (at the bottom).
+
+== Add and Delete Supervisions
+
+To create supervisions either click the icon to the right of available supervisions to create a new, unassigned supervision (❶).
+
+To create and assign a supervision at the same time, select the "New supervision" option within "Available supervisions" and then an appropriate control block (❷ and ❸).
+
+.Add Supervisions
+image::adding_supervisions.png[adding_supervisions.png]
+
+To delete supervisions, either click the delete icon (❶) on an assignd supervision or an available supervision (❷):
+
+.Delete Supervisions
+image::removing_supervisions.png[xref=image$removing_supervisions.png]
+
+The first supervision cannot be deleted as it is required to maintain the integrity of the references.
+
+== Searching Supervisions and Control Blocks
+
+If connecting many supervisions and control blocks, the search bar can be used on the lower part of the screen
+Search is case-sensitive and multiple terms can be used.
+To search, enter text in the search field.
+
+Common searches include
+
+* supervision or control block description (from descriptions in the SCL file)
+* supervision node (e.g. `"LGOS 1"` or `'LGOS 1'`)
+* control block name (e.g. `TripCBFail`)
+
+== Descriptions
+
+The plugin allows descriptions to be provided for supervision nodes and control blocks.
+These are typically shown under the supervision name and instance.
+
+* The `desc` field on the `LDevice`, `LLN0` or `GSEControl` -- these are joined together with a caret, e.g. `LDevice desc > Some LLN0 desc > Some GSE desc`
+* The `desc` field on the `LDevice`, or supervision `LN` or the value of the `desc` attribute on the `St` `DOI` or the `DAI[d]` on the `DOI` (if `desc` is not available)
+

@@ -1,0 +1,42 @@
+= Introduction
+include::partial$base.adoc[]
+// :sectnums!:
+
+The Supervision plugin provides the following capabilities
+
+* Creating and deleting supervision nodes (LGOS and LSVS)
+* Adding and removing control block references to supervision nodes
+
+== Overview
+
+The plugin consists of two sections:
+
+* Referenced supervisions with their control blocks
+* Free supervisions and control blocks
+
+.Overview
+image::overview.png[xref=image$overview.png]
+
+== Requirements
+
+The plugin will only allow modifications to supervision nodes if the SCL file allows them (see xref:allowing_supervision_modifications.adoc[] for more details and how to carry out manual modification).
+
+This is known to work with typical templates for:
+
+* Siemens DIGSI 5 for SIPROTEC 5 devices (LGOS and LSVS nodes)
+* GE Enervista UR Setup (for Multilin devices and LGOS nodes)
+* SEL SEL-24xx, SEL-751, SEL-4xx devices when manually configured.
+* NR Electric PCS-221S when manually configured.
+
+For creating supervision nodes, the `Services` section of the IED must be declared
+
+[source,xml]
+----
+<Services nameLength="64">
+  <SupSubscription
+    maxGo="128" <--.-->
+    maxSv="60"/> <--.-->
+</Services>
+----
+<.> 128 LGOS supervisions allowed
+<.> 60 LSVS supervisions allowed

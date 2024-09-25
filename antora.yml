@@ -1,0 +1,10 @@
+name: oscd-supervision
+title: Supervision
+version: dev
+prerelease: true
+start_page: introduction.adoc
+asciidoc:
+  attributes:
+    prerelease: true
+nav:
+  - modules/ROOT/nav.adoc
