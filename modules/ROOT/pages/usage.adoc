@@ -19,7 +19,7 @@ In the bottom part of the screen either click an existing supervision node (❶)
 
 
 .Assign or Create a Supervision
-image::assign_supervision.png[]
+image::assign_supervision.png[xref=image$assign_supervision.png]
 
 === Remove Assignment
 
@@ -33,7 +33,7 @@ To create supervisions either click the icon to the right of available supervisi
 To create and assign a supervision at the same time, select the "New supervision" option within "Available supervisions" and then an appropriate control block (❷ and ❸).
 
 .Add Supervisions
-image::adding_supervisions.png[adding_supervisions.png]
+image::adding_supervisions.png[xref=image$adding_supervisions.png]
 
 To delete supervisions, either click the delete icon (❶) on an assignd supervision or an available supervision (❷):
 
